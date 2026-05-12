@@ -1,0 +1,92 @@
+# Grounded-R1 — GRPO training recipe
+# Model : Qwen/Qwen2.5-1.5B-Instruct
+# Task  : grounded information extraction (anti-hallucination via exact quote rewards)
+#
+# Prerequisites:
+#   1. python scripts/prepare_grounded_dataset.py --output_dir data/grounded-squad-v2
+#   2. sbatch --nodes=2 slurm/train.slurm \
+#        --model Grounded-R1-Qwen-1.5B --task grpo --config v0 --accelerator zero3 \
+#        --dp 1 --tp 1
+
+# ── ModelConfig ──────────────────────────────────────────────────────────────
+model_name_or_path: Qwen/Qwen2.5-1.5B-Instruct
+torch_dtype: bfloat16
+attn_implementation: flash_attention_2
+
+# ── GRPOScriptArguments ──────────────────────────────────────────────────────
+dataset_name: data/grounded-squad-v2   # path to disk-saved DatasetDict from prepare script
+dataset_train_split: train
+dataset_test_split: validation
+dataset_prompt_column: prompt
+
+reward_funcs:
+  - grounded_format        # weight 1.0 — structural compliance gate
+  - quote_grounding        # weight 2.0 — core anti-hallucination signal
+  - answer_faithfulness    # weight 1.0 — final answer stays faithful to quotes
+  - reasoning_quality      # weight 0.5 — encourages substantive CoT
+
+# ── GRPOConfig ───────────────────────────────────────────────────────────────
+output_dir: data/Grounded-R1-Qwen-1.5B-v0
+
+# Reward weights (order matches reward_funcs above)
+reward_weights:
+  - 1.0
+  - 2.0
+  - 1.0
+  - 0.5
+
+system_prompt: >-
+  You are an expert information extraction system. Your task is to answer questions
+  based STRICTLY on the provided context chunks.
+
+  CRITICAL RULES:
+  1. You MUST ONLY use information explicitly stated in the provided context.
+  2. Every claim in your final_answer MUST be directly supported by an exact extracted_quote.
+  3. Your "exact_quote" values MUST be verbatim substrings copied from the context —
+     no paraphrasing, no omissions, no additions.
+  4. If the context does not contain enough information to answer the question,
+     set "is_context_sufficient": false and leave "extracted_quotes" as an empty list [].
+
+  OUTPUT FORMAT — respond ONLY with this JSON schema (no markdown, no preamble):
+  {
+    "reasoning_path": "<chain-of-thought: identify relevant chunks, assess sufficiency>",
+    "is_context_sufficient": <true|false>,
+    "final_answer": "<synthesised answer, or abstention message if insufficient>",
+    "extracted_quotes": [
+      {"chunk_id": "<source chunk id>", "exact_quote": "<verbatim text from the chunk>"}
+    ]
+  }
+
+# Training hyperparameters
+num_train_epochs: 1
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 8        # effective batch: 2 * 8GPUs * 8 = 128 prompts
+learning_rate: 5.0e-7
+lr_scheduler_type: cosine
+warmup_ratio: 0.05
+weight_decay: 0.01
+
+# GRPO-specific
+num_generations: 8                    # completions per prompt (diversity for relative rewards)
+max_prompt_length: 1024               # SQuAD passages + question fit comfortably
+max_completion_length: 512            # JSON responses are compact
+temperature: 0.9
+beta: 0.04                            # KL penalty — small for exploration early in training
+
+# vLLM rollout acceleration
+use_vllm: true
+vllm_server_port: 8000
+
+# Logging & saving
+logging_steps: 10
+save_steps: 100
+eval_strategy: steps
+eval_steps: 200
+num_completions_to_print: 2           # print sample rollouts for monitoring
+report_to: wandb
+wandb_project: grounded-r1
+
+# Precision & efficiency
+bf16: true
+gradient_checkpointing: true
+dataloader_num_workers: 4
