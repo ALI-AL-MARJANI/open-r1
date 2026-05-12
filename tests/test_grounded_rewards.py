@@ -7,6 +7,7 @@ from open_r1.grounded_rewards import (
     _is_grounded,
     _parse_grounded_response,
     answer_faithfulness_reward,
+    chunk_routing_reward,
     grounded_format_reward,
     quote_grounding_reward,
     reasoning_quality_reward,
@@ -265,3 +266,148 @@ class TestEndToEnd:
         faith = answer_faithfulness_reward(completions)
         assert grnd == [0.0]  # quote not in context → full penalty
         assert faith[0] < 0.3
+
+
+# ---------------------------------------------------------------------------
+# chunk_routing_reward (v1 — multi-chunk contexts)
+# ---------------------------------------------------------------------------
+
+# Multi-chunk test fixtures
+CHUNK_A = "Paris is the capital of France and a major European city."
+CHUNK_B = "Berlin is the capital of Germany, located in central Europe."
+CHUNK_C = "London is the capital of the United Kingdom and a financial hub."
+
+MULTI_CHUNKS = json.dumps({
+    "France_0": CHUNK_A,
+    "Germany_0": CHUNK_B,
+    "UK_0": CHUNK_C,
+})
+GOLD_IDS = json.dumps(["France_0"])  # only France chunk is relevant
+
+
+def _routing_completion(is_sufficient: bool, answer: str, quotes: list[dict],
+                        reasoning: str = "Checked all chunks for relevant information about France.") -> list:
+    payload = {
+        "reasoning_path": reasoning,
+        "is_context_sufficient": is_sufficient,
+        "final_answer": answer,
+        "extracted_quotes": quotes,
+    }
+    return _json_completion(payload)
+
+
+class TestChunkRoutingReward:
+    def test_perfect_routing_scores_1(self):
+        """Quote from gold chunk, verbatim substring → 1.0."""
+        completions = _routing_completion(
+            True, "Paris",
+            [{"chunk_id": "France_0", "exact_quote": "Paris is the capital of France"}],
+        )
+        rewards = chunk_routing_reward(completions, context_chunks=[MULTI_CHUNKS], gold_chunk_ids=[GOLD_IDS])
+        assert rewards == [1.0]
+
+    def test_distractor_chunk_scores_0(self):
+        """Quote from a distractor chunk, even if verbatim → 0.0."""
+        completions = _routing_completion(
+            True, "Berlin",
+            [{"chunk_id": "Germany_0", "exact_quote": "Berlin is the capital of Germany"}],
+        )
+        rewards = chunk_routing_reward(completions, context_chunks=[MULTI_CHUNKS], gold_chunk_ids=[GOLD_IDS])
+        assert rewards == [0.0]
+
+    def test_gold_chunk_but_hallucinated_quote_scores_0(self):
+        """Correct chunk id, but exact_quote not in that chunk → 0.0."""
+        completions = _routing_completion(
+            True, "Paris",
+            [{"chunk_id": "France_0", "exact_quote": "Paris has always been the greatest city"}],
+        )
+        rewards = chunk_routing_reward(completions, context_chunks=[MULTI_CHUNKS], gold_chunk_ids=[GOLD_IDS])
+        assert rewards == [0.0]
+
+    def test_partial_routing_half_score(self):
+        """One routed correctly, one from distractor → 0.5."""
+        completions = _routing_completion(
+            True, "Paris and Berlin",
+            [
+                {"chunk_id": "France_0", "exact_quote": "Paris is the capital of France"},
+                {"chunk_id": "Germany_0", "exact_quote": "Berlin is the capital of Germany"},
+            ],
+        )
+        rewards = chunk_routing_reward(completions, context_chunks=[MULTI_CHUNKS], gold_chunk_ids=[GOLD_IDS])
+        assert rewards == [0.5]
+
+    def test_correct_abstention_unanswerable(self):
+        """gold_chunk_ids=[], is_context_sufficient=False, no quotes → 1.0."""
+        completions = _routing_completion(
+            False,
+            "The provided context does not contain sufficient information.",
+            [],
+            reasoning="None of the provided chunks mention the capital of Mars, context is insufficient.",
+        )
+        empty_gold = json.dumps([])
+        rewards = chunk_routing_reward(completions, context_chunks=[MULTI_CHUNKS], gold_chunk_ids=[empty_gold])
+        assert rewards == [1.0]
+
+    def test_wrong_sufficiency_claim_for_unanswerable(self):
+        """gold_chunk_ids=[], is_context_sufficient=True → 0.0 (should have abstained)."""
+        completions = _routing_completion(
+            True, "Paris",
+            [{"chunk_id": "France_0", "exact_quote": "Paris is the capital of France"}],
+        )
+        empty_gold = json.dumps([])
+        rewards = chunk_routing_reward(completions, context_chunks=[MULTI_CHUNKS], gold_chunk_ids=[empty_gold])
+        assert rewards == [0.0]
+
+    def test_wrong_abstention_for_answerable(self):
+        """gold_chunk_ids non-empty, is_context_sufficient=False → 0.0 (missed the answer)."""
+        completions = _routing_completion(
+            False,
+            "The provided context does not contain sufficient information.",
+            [],
+        )
+        rewards = chunk_routing_reward(completions, context_chunks=[MULTI_CHUNKS], gold_chunk_ids=[GOLD_IDS])
+        assert rewards == [0.0]
+
+    def test_invalid_json_scores_0(self):
+        rewards = chunk_routing_reward(
+            _make_completion("not json"),
+            context_chunks=[MULTI_CHUNKS],
+            gold_chunk_ids=[GOLD_IDS],
+        )
+        assert rewards == [0.0]
+
+    def test_no_quotes_when_sufficient_scores_0(self):
+        completions = _routing_completion(True, "Paris", [])
+        rewards = chunk_routing_reward(completions, context_chunks=[MULTI_CHUNKS], gold_chunk_ids=[GOLD_IDS])
+        assert rewards == [0.0]
+
+    def test_multi_gold_chunks_hotpotqa_style(self):
+        """Two gold chunks (HotpotQA bridge questions), both cited correctly → 1.0."""
+        two_gold = json.dumps(["France_0", "Germany_0"])
+        completions = _routing_completion(
+            True, "Both Paris and Berlin are capitals in Europe.",
+            [
+                {"chunk_id": "France_0", "exact_quote": "Paris is the capital of France"},
+                {"chunk_id": "Germany_0", "exact_quote": "Berlin is the capital of Germany"},
+            ],
+        )
+        rewards = chunk_routing_reward(completions, context_chunks=[MULTI_CHUNKS], gold_chunk_ids=[two_gold])
+        assert rewards == [1.0]
+
+    def test_batch_processing(self):
+        """Two examples processed in one call."""
+        comp_good = _routing_completion(
+            True, "Paris",
+            [{"chunk_id": "France_0", "exact_quote": "Paris is the capital of France"}],
+        )
+        comp_bad = _routing_completion(
+            True, "Berlin",
+            [{"chunk_id": "Germany_0", "exact_quote": "Berlin is the capital of Germany"}],
+        )
+        completions = comp_good + comp_bad
+        rewards = chunk_routing_reward(
+            completions,
+            context_chunks=[MULTI_CHUNKS, MULTI_CHUNKS],
+            gold_chunk_ids=[GOLD_IDS, GOLD_IDS],
+        )
+        assert rewards == [1.0, 0.0]

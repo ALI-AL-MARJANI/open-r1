@@ -1,0 +1,94 @@
+# Grounded-R1 v2 — hard-negative GRPO recipe
+# Model   : Qwen/Qwen2.5-1.5B-Instruct
+# Dataset : SQuAD v2 with same-article hard-negative distractors (4 chunks/example avg)
+#
+# Delta vs v0: same reward stack + chunk_routing; dataset is 4x harder
+# because distractors share vocabulary and entities with the gold passage.
+#
+# Prerequisites:
+#   python scripts/inject_hard_negatives.py \
+#       --n_negatives 3 --output_dir data/grounded-squad-v2-hard
+#
+#   sbatch --nodes=2 slurm/train.slurm \
+#       --model Grounded-R1-Qwen-1.5B --task grpo --config v2 --accelerator zero3
+
+# ── ModelConfig ──────────────────────────────────────────────────────────────
+model_name_or_path: Qwen/Qwen2.5-1.5B-Instruct
+torch_dtype: bfloat16
+attn_implementation: flash_attention_2
+
+# ── GRPOScriptArguments ──────────────────────────────────────────────────────
+dataset_name: data/grounded-squad-v2-hard
+dataset_train_split: train
+dataset_test_split: validation
+dataset_prompt_column: prompt
+
+reward_funcs:
+  - grounded_format        # weight 1.0
+  - quote_grounding        # weight 1.5  — no hallucinations anywhere
+  - chunk_routing          # weight 2.0  — cite from gold, not from topic-similar distractors
+  - answer_faithfulness    # weight 1.0
+  - reasoning_quality      # weight 0.5
+
+# ── GRPOConfig ───────────────────────────────────────────────────────────────
+output_dir: data/Grounded-R1-Qwen-1.5B-v2
+
+reward_weights:
+  - 1.0
+  - 1.5
+  - 2.0
+  - 1.0
+  - 0.5
+
+system_prompt: >-
+  You are an expert information extraction system. Your task is to answer questions
+  based STRICTLY on the provided context chunks.
+
+  CRITICAL RULES:
+  1. You MUST ONLY use information explicitly stated in the provided context.
+  2. Every claim in your final_answer MUST be directly supported by an exact extracted_quote.
+  3. Your "exact_quote" values MUST be verbatim substrings copied from the context —
+     no paraphrasing, no omissions, no additions.
+  4. The "chunk_id" field MUST match the id of the chunk you are quoting from.
+  5. If the context does not contain enough information to answer the question,
+     set "is_context_sufficient": false and leave "extracted_quotes" as an empty list [].
+
+  OUTPUT FORMAT — respond ONLY with this JSON schema (no markdown, no preamble):
+  {
+    "reasoning_path": "<chain-of-thought: which chunks are relevant, is context sufficient?>",
+    "is_context_sufficient": <true|false>,
+    "final_answer": "<synthesised answer, or abstention message if insufficient>",
+    "extracted_quotes": [
+      {"chunk_id": "<exact chunk id>", "exact_quote": "<verbatim text>"}
+    ]
+  }
+
+# Training — slightly higher temperature to exploit the harder variance
+num_train_epochs: 1
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 8
+learning_rate: 5.0e-7
+lr_scheduler_type: cosine
+warmup_ratio: 0.05
+weight_decay: 0.01
+
+num_generations: 8
+max_prompt_length: 2048           # 4 passages × ~400 tokens each
+max_completion_length: 512
+temperature: 1.0                  # higher than v0/v1: harder examples benefit from more diversity
+beta: 0.04
+
+use_vllm: true
+vllm_server_port: 8000
+
+logging_steps: 10
+save_steps: 100
+eval_strategy: steps
+eval_steps: 200
+num_completions_to_print: 2
+report_to: wandb
+wandb_project: grounded-r1
+
+bf16: true
+gradient_checkpointing: true
+dataloader_num_workers: 4

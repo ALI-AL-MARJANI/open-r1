@@ -252,6 +252,101 @@ def answer_faithfulness_reward(completions, **kwargs) -> list[float]:
 # Reward 4 — Reasoning quality (soft, encourages CoT)
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Reward 3b — Chunk routing (v1, multi-chunk contexts)
+# ---------------------------------------------------------------------------
+
+def chunk_routing_reward(
+    completions,
+    context_chunks: list[str],
+    gold_chunk_ids: list[str],
+    **kwargs,
+) -> list[float]:
+    """
+    Verifies that each extracted_quote comes from a gold (supporting) chunk,
+    not from a distractor chunk.
+
+    This is the key v1 reward for multi-passage contexts (e.g. HotpotQA).
+    It sits on top of quote_grounding_reward: a quote must both exist verbatim
+    in the source AND originate from the correct passage.
+
+    Args:
+        context_chunks:  list of JSON strings, each encoding {chunk_id: text}.
+        gold_chunk_ids:  list of JSON strings, each encoding [chunk_id, ...].
+                         Empty list means the question is unanswerable.
+
+    Scoring:
+      is_context_sufficient=True, gold non-empty, quotes present:
+          mean(1.0 if chunk_id ∈ gold_ids AND exact_quote ∈ chunk_text else 0.0)
+      is_context_sufficient=False, gold empty (truly unanswerable):
+          1.0 — correct abstention
+      is_context_sufficient=True,  gold empty:
+          0.0 — claimed sufficient when nothing is answerable
+      is_context_sufficient=False, gold non-empty:
+          0.0 — wrongly abstained when context is sufficient
+      No quotes when sufficient:
+          0.0
+    """
+    rewards = []
+    for completion, chunks_json, gold_json in zip(completions, context_chunks, gold_chunk_ids):
+        content = completion[0]["content"]
+        parsed = _parse_grounded_response(content)
+
+        if parsed is None or not REQUIRED_KEYS.issubset(parsed.keys()):
+            rewards.append(0.0)
+            continue
+
+        try:
+            chunk_dict: dict[str, str] = json.loads(chunks_json)
+            gold_ids: list[str] = json.loads(gold_json)
+        except (json.JSONDecodeError, TypeError):
+            rewards.append(0.0)
+            continue
+
+        is_sufficient = parsed["is_context_sufficient"]
+        quotes = parsed["extracted_quotes"]
+        is_truly_unanswerable = len(gold_ids) == 0
+
+        # Correct abstention
+        if is_truly_unanswerable and not is_sufficient and not quotes:
+            rewards.append(1.0)
+            continue
+
+        # Wrong claim of sufficiency for unanswerable
+        if is_truly_unanswerable and is_sufficient:
+            rewards.append(0.0)
+            continue
+
+        # Wrong abstention for answerable
+        if not is_truly_unanswerable and not is_sufficient:
+            rewards.append(0.0)
+            continue
+
+        # No quotes when claimed sufficient
+        valid_quotes = [q for q in quotes if isinstance(q, dict) and q.get("exact_quote", "").strip()]
+        if not valid_quotes:
+            rewards.append(0.0)
+            continue
+
+        # Score each quote: gold chunk + grounded in that chunk
+        scores = []
+        for q in valid_quotes:
+            cid = q.get("chunk_id", "")
+            eq = q.get("exact_quote", "")
+            chunk_text = chunk_dict.get(cid, "")
+            routed_correctly = cid in gold_ids
+            grounded_in_chunk = _is_grounded(eq, chunk_text)
+            scores.append(1.0 if (routed_correctly and grounded_in_chunk) else 0.0)
+
+        rewards.append(sum(scores) / len(scores))
+
+    return rewards
+
+
+# ---------------------------------------------------------------------------
+# Reward 4 — Reasoning quality (soft, encourages CoT)
+# ---------------------------------------------------------------------------
+
 def reasoning_quality_reward(completions, **kwargs) -> list[float]:
     """
     Soft reward encouraging a substantive chain-of-thought in reasoning_path.

@@ -4,116 +4,156 @@
 
 Fork of `huggingface/open-r1` (DeepSeek-R1 GRPO reproduction). We repurpose the GRPO training pipeline from math reasoning → **hallucination-free information extraction**.
 
-Core innovation: reward the model for verbatim citations (exact substring matching) instead of correct math answers.
+Core innovation: reward the model for verbatim citations (exact substring matching) instead of correct math answers. The upstream `src/open_r1/grpo.py` is **never modified** — all new code is additive.
 
-## Key Architecture Decisions
+---
 
-### The grpo.py is NOT modified
-The upstream `src/open_r1/grpo.py` is left untouched. Our work lives in:
-- `src/open_r1/grounded_rewards.py` — new reward functions
-- `scripts/prepare_grounded_dataset.py` — dataset preprocessing
+## Architecture
 
-This works because `GRPOTrainer` passes all non-`prompt` dataset columns as `**kwargs` to reward functions. So if the dataset has a `context_raw` column, it reaches `quote_grounding_reward(completions, context_raw, **kwargs)` automatically.
+`GRPOTrainer` passes all non-`prompt` dataset columns as `**kwargs` to reward functions. We exploit this: add `context_raw`, `context_chunks`, `gold_chunk_ids` columns to the dataset, and the reward functions receive them automatically with zero changes to the training loop.
 
-### Dataset columns required for grounded training
-- `prompt` — Full user message: `[CHUNK id="..."]...[/CHUNK]` + question
-- `context_raw` — Raw passage text (used by `quote_grounding_reward` for substring matching)
-- `solution` — Gold answer string (optional, for evaluation only)
+### Required dataset columns
 
-### Reward function signatures
-All reward functions follow the trl GRPOTrainer signature:
+| Column | Type | Used by |
+|--------|------|---------|
+| `prompt` | str | training loop — full user message with `[CHUNK]` blocks + question |
+| `context_raw` | str | `quote_grounding_reward` — concatenation of all chunk texts |
+| `context_chunks` | str (JSON) | `chunk_routing_reward` — `{chunk_id: text}` dict |
+| `gold_chunk_ids` | str (JSON) | `chunk_routing_reward` — `[chunk_id, ...]`; `[]` = unanswerable |
+| `solution` | str | eval only — gold answer string |
+
+### Reward function signature
 ```python
 def reward_fn(completions: list[list[dict]], **kwargs) -> list[float | None]:
+    content = completions[i][0]["content"]  # always read index [0]["content"]
 ```
-`completions[i]` is a list of message dicts; we always read `completions[i][0]["content"]`.
 
-### The `context_raw` grounding check
-Uses exact substring matching with whitespace normalisation:
+### Core grounding primitive
 ```python
 def _is_grounded(quote: str, context: str) -> bool:
     if quote in context: return True
-    return " ".join(quote.split()) in " ".join(context.split())
+    return " ".join(quote.split()) in " ".join(context.split())  # whitespace norm
 ```
-**No fuzzy matching.** The model must learn to copy verbatim. This is the design intent.
+**No fuzzy matching** — the model must copy verbatim. This is the design intent.
 
-### Reward registry
-New rewards are registered in `src/open_r1/rewards.py` inside `REWARD_FUNCS_REGISTRY`. They are activated via the `reward_funcs` list in the YAML config.
+---
 
 ## File Map
 
 ```
 src/open_r1/
-├── grpo.py                    # upstream training loop — DO NOT MODIFY
-├── grounded_rewards.py        # all grounded reward functions
-├── rewards.py                 # registry: grounded rewards imported + registered here
-└── configs.py                 # GRPOScriptArguments, GRPOConfig dataclasses
+├── grpo.py                    # upstream — DO NOT MODIFY
+├── grounded_rewards.py        # all 5 reward functions
+├── rewards.py                 # REWARD_FUNCS_REGISTRY — grounded rewards registered here
+└── configs.py                 # GRPOScriptArguments reward_funcs help text updated
 
 scripts/
-└── prepare_grounded_dataset.py  # SQuAD v2 → {prompt, context_raw, solution}
+├── prepare_grounded_dataset.py  # SQuAD v2 + HotpotQA → grounded schema
+├── inject_hard_negatives.py     # v2: same-article distractor injection into SQuAD
+├── prepare_domain_dataset.py    # v3: domain-specific (PubMedQA biomedical)
+└── evaluate_grounded.py         # evaluation pipeline (10 metrics, no model changes needed)
 
 recipes/
-└── Grounded-R1-Qwen-1.5B/grpo/config_v0.yaml  # training recipe YAML
+├── Grounded-R1-Qwen-1.5B/grpo/
+│   ├── config_v0.yaml           # SQuAD v2, 4 rewards, 2 nodes
+│   ├── config_v1.yaml           # HotpotQA 10-chunk, 5 rewards, 2 nodes
+│   └── config_v2.yaml           # SQuAD v2 + hard negatives, 5 rewards, 2 nodes
+├── Grounded-R1-Qwen-7B/grpo/
+│   └── config_v0.yaml           # 4 nodes, ZeRO-3, tp=2, lr=2e-7
+└── Grounded-R1-Qwen-32B/grpo/
+    └── config_v0.yaml           # 16 nodes, FSDP, tp=8, paged_adamw_8bit, lr=5e-8
 
 tests/
-└── test_grounded_rewards.py   # unit tests (16/16 green, run with pytest)
+├── test_grounded_rewards.py     # reward functions    — 16 tests
+├── test_evaluation.py           # eval pipeline       — 15 tests
+├── test_hard_negatives.py       # v2 injection        — 23 tests
+└── test_domain_dataset.py       # v3 PubMedQA         — 18 tests
+                                 # TOTAL: 72 tests, all green
 ```
 
-## Training Recipe Summary
+---
 
-Recipe: `recipes/Grounded-R1-Qwen-1.5B/grpo/config_v0.yaml`
+## Reward Stack
 
-- Model: `Qwen/Qwen2.5-1.5B-Instruct`, bf16, flash_attention_2
-- Dataset: `data/grounded-squad-v2` (disk, from prepare script)
-- Rewards: `grounded_format` ×1.0, `quote_grounding` ×2.0, `answer_faithfulness` ×1.0, `reasoning_quality` ×0.5
-- GRPO: `num_generations=8`, `beta=0.04`, `temperature=0.9`
-- Context: `max_prompt_length=1024`, `max_completion_length=512`
-- vLLM: `use_vllm=true`
-- Cluster: 2 nodes (1 training ZeRO-3, 1 vLLM server)
+All registered in `rewards.py` under `REWARD_FUNCS_REGISTRY`.
 
-## System Prompt (used in recipe)
+| Key | Function | Requires | Signal |
+|-----|----------|----------|--------|
+| `grounded_format` | `grounded_format_reward` | — | Additive JSON schema check (+0.25 per layer). Max 1.0. |
+| `quote_grounding` | `quote_grounding_reward` | `context_raw` | Fraction of quotes that are exact substrings of ANY chunk. Correct abstention → 1.0. |
+| `chunk_routing` | `chunk_routing_reward` | `context_chunks`, `gold_chunk_ids` | Fraction of quotes from the correct gold chunk. Distractor citations → 0. |
+| `answer_faithfulness` | `answer_faithfulness_reward` | — | Token overlap between `final_answer` and extracted quotes. |
+| `reasoning_quality` | `reasoning_quality_reward` | — | Soft CoT: non-empty +0.5, sufficiency vocab +0.3, ≥20 words +0.2. |
 
-The model is instructed to output ONLY the JSON schema with:
-- `reasoning_path`: CoT assessing context sufficiency
-- `is_context_sufficient`: bool
-- `final_answer`: synthesis or abstention phrase
-- `extracted_quotes`: list of `{chunk_id, exact_quote}` verbatim substrings
+**Two-level hierarchy**: `quote_grounding` catches hallucinations vs all context. `chunk_routing` adds the stricter requirement of citing from the right passage. Used together from v1 onwards.
 
-## Dataset
+---
 
-SQuAD v2 (`rajpurkar/squad_v2`) chosen because:
-- 86k answerable → trains `is_context_sufficient=true` + grounded quotes
-- 43k unanswerable → trains `is_context_sufficient=false` + empty quotes (correct abstention = reward 1.0)
+## Dataset Pipelines
 
-## Conventions
+### `prepare_grounded_dataset.py --dataset squad_v2`
+- Source: `rajpurkar/squad_v2` — 86k answerable + 43k unanswerable
+- Single chunk per example, `gold_chunk_ids=[chunk_id]` or `[]`
 
-- Line length: 119 chars (see setup.cfg)
-- Python 3.10+ type hints (`list[str]`, not `List[str]`)
-- No docstrings on reward functions — behaviour is explained in the docstring block at module top
-- Tests live in `tests/`, run with `pytest tests/test_grounded_rewards.py`
+### `prepare_grounded_dataset.py --dataset hotpotqa`
+- Source: `hotpot_qa` distractor config — 10 chunks/question (2 gold + 8 distractors)
+- Chunks shuffled deterministically per `hash(example_id)`
+- Handles title collision with suffix counter
+
+### `inject_hard_negatives.py`
+- Input: raw SQuAD v2 from HF
+- Adds same-article Wikipedia passages as distractors (`TitleIndex` groups by title)
+- Fallback chain: same-title → adjacent-title → random
+- `gold_chunk_id` unchanged; distractor ids get `_neg1`, `_neg2` suffix
+- Prevents GRPO gradient collapse when model converges on easy examples
+
+### `prepare_domain_dataset.py --domain pubmedqa`
+- Source: `qiaojin/PubMedQA` — configs: `pqa_labeled` (1k expert), `pqa_artificial` (211k silver)
+- IMRAD sections → one chunk each (`pubmed_{pubid}_{LABEL}`)
+- `"yes"/"no"` → `gold_chunk_ids=all_sections` (abstraction: any abstract section is citable)
+- `"maybe"` → `gold_chunk_ids=[]` (genuine uncertainty = correct abstention)
+- Sections shuffled to prevent model exploiting CONCLUSIONS-always-last
+
+---
 
 ## Evaluation Pipeline
 
-Script: `scripts/evaluate_grounded.py`
-
 ```bash
 python scripts/evaluate_grounded.py \
-    --model_name_or_path Qwen/Qwen2.5-1.5B-Instruct \
+    --model_name_or_path <checkpoint> \
     --limit 500 \
     --output_file eval_results.json
 ```
 
-Key metrics:
-- `quote_accuracy` — fraction of extracted_quotes that are exact substrings (primary anti-hallucination signal)
-- `hallucination_rate` — 1 - quote_accuracy (the number to minimise)
-- `abstention_rate` — fraction of unanswerable examples where model correctly abstained
-- `sufficiency_f1` — F1 of is_context_sufficient binary classification vs gold
-- `answer_em` / `answer_f1` — standard SQuAD metrics (answerable examples only)
+10 metrics in 4 groups:
 
-The `MetricsAccumulator` class handles per-example tracking + aggregate computation. Tests: `tests/test_evaluation.py`.
+| Group | Metrics |
+|-------|---------|
+| Format | `format_rate` |
+| Grounding | `quote_accuracy`, `hallucination_rate`, `coverage_rate`, `abstention_rate`, `abstention_quality` |
+| Sufficiency | `accuracy`, `precision`, `recall`, `f1` |
+| Answer quality | `exact_match`, `token_f1` (answerable only) |
 
-## Roadmap (next steps)
+Runs against raw SQuAD v2 validation (not preprocessed) — use to compare any checkpoint under identical conditions.
 
-1. ~~Evaluate~~ — DONE (`scripts/evaluate_grounded.py`)
-2. **Multi-chunk** — extend dataset pipeline to multi-passage contexts with chunk routing
-3. **Synthetic hard negatives** — generate near-miss quotes (paraphrases) to sharpen the grounding signal
-4. **Scale** — Qwen2.5-7B, then 32B with FSDP
+---
+
+## Scaling Recipes
+
+| Model | Nodes | Accel | vLLM tp | lr | key constraint |
+|-------|-------|-------|---------|-----|----------------|
+| Qwen2.5-1.5B | 2 | ZeRO-3 | 1 | 5e-7 | baseline |
+| Qwen2.5-7B | 4 | ZeRO-3 | 2 | 2e-7 | bs=1/GPU |
+| Qwen2.5-32B | 16 | **FSDP** | **8** | 5e-8 | `paged_adamw_8bit`, shorter completions (512) |
+
+For 32B: FSDP (not ZeRO-3) is more stable. `paged_adamw_8bit` halves optimizer memory. Full node for vLLM server.
+
+---
+
+## Conventions
+
+- Line length: 119 chars (see `setup.cfg`)
+- Python 3.10+ type hints (`list[str]`, not `List[str]`)
+- All reward function docstrings describe WHY, not WHAT
+- Tests: `pytest tests/` — 72 tests total, must all pass before any commit
+- Reward functions return `list[float]` not `list[float | None]` unless the signal truly can't be computed (rare)
