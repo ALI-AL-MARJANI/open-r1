@@ -1,0 +1,61 @@
+# GRPO on Qwen2.5-1.5B-Instruct with the full reward suite.
+# Run: python scripts/grounded/train_grpo.py --config configs/grounded/grpo_qwen1.5b.yaml --seed 0
+# Same protocol as grpo_qwen0.5b.yaml with a larger model and fewer steps (300 steps = 1,200 prompts).
+
+run_name: grpo_qwen1.5b
+
+model:
+  name: Qwen/Qwen2.5-1.5B-Instruct
+  dtype: bfloat16
+
+lora:
+  r: 32
+  alpha: 64
+  dropout: 0.0
+  target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+
+data:
+  dataset: squad_v2
+  split: train
+  n_examples: 1200
+  answerable_fraction: 0.5
+  n_distractors: 3          # other paragraphs of the same Wikipedia article
+  max_prompt_words: 700     # longer prompts are dropped to bound GPU memory
+  seed: 0                   # selects the training pool; identical for every training seed
+
+rewards:
+  weights:                  # order = order of the reward functions passed to the trainer
+    format: 0.5
+    answer_correctness: 2.0
+    quote_grounding: 1.5
+    chunk_routing: 1.0
+    answer_faithfulness: 0.5
+    abstention_rate: 0.0    # monitoring only (weight 0)
+  settings:
+    quote_min_words: 3
+    quote_full_credit_words: 50
+    quote_zero_credit_words: 100
+    max_quotes: 3
+    max_extra_chars: 0
+    answer_copy_ratio: 0.8
+    answer_copy_cap: 0.5
+
+grpo:                       # passed to trl.GRPOConfig (TRL 0.29.1)
+  max_steps: 300
+  per_device_train_batch_size: 8
+  gradient_accumulation_steps: 4
+  num_generations: 8
+  max_completion_length: 256
+  learning_rate: 1.0e-5
+  lr_scheduler_type: cosine
+  warmup_steps: 20
+  temperature: 1.0
+  beta: 0.0                 # no KL term (TRL default); see the beta ablation
+  loss_type: dapo           # TRL default; see the dr_grpo ablation
+  scale_rewards: group      # advantage = (r - mean) / std within each prompt group
+  bf16: true
+  logging_steps: 5
+  save_steps: 100
+  save_total_limit: 2
+  use_vllm: false           # in-process transformers generation
+  report_to: none

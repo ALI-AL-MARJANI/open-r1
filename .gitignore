@@ -175,7 +175,9 @@ data/
 wandb/
 logs/
 eval_results/
-results/
 
 .vscode/
 .python-version
+
+# Grounded-R1: results/ is committed (raw metrics, logs, figures); model checkpoints go to data/
+!results/

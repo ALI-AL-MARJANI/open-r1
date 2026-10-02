@@ -1,0 +1,60 @@
+# Evaluation protocol shared by every model in the result tables.
+# Used by scripts/grounded/evaluate.py; outputs go to results/eval/<run_name>/.
+
+seed: 0                 # selects the evaluation subsets (fixed for all runs)
+bootstrap_resamples: 1000
+
+datasets:
+  # In-distribution: SQuAD v2 dev, balanced, gold paragraph + 3 same-article distractors.
+  squad_v2_distractors:
+    dataset: squad_v2
+    split: validation
+    n_examples: 1000
+    answerable_fraction: 0.5
+    n_distractors: 3
+  # Same 1,000 questions with the gold paragraph only (the standard SQuAD v2 input).
+  squad_v2:
+    dataset: squad_v2
+    split: validation
+    n_examples: 1000
+    answerable_fraction: 0.5
+    n_distractors: 0
+  # Transfer, not trained on: HotpotQA distractor setting (10 paragraphs, 2 gold).
+  hotpotqa:
+    dataset: hotpotqa
+    split: validation
+    n_examples: 500
+  # Transfer, not trained on: PubMedQA expert-labelled set, reasoning-required setting.
+  pubmedqa:
+    dataset: pubmedqa
+    split: train          # PQA-L ships as a single "train" split of 1,000 examples on the Hub
+    n_examples: 500
+
+generation:
+  max_new_tokens: 256
+  batch_size: 16
+  dtype: auto
+
+few_shot:               # used only with --few_shot
+  n_answerable: 2
+  n_unanswerable: 1
+  n_distractors: 1
+  max_context_words: 120
+  seed: 0
+
+# Same weights and settings as the training configs; used to report reward_fraction.
+rewards:
+  weights:
+    format: 0.5
+    answer_correctness: 2.0
+    quote_grounding: 1.5
+    chunk_routing: 1.0
+    answer_faithfulness: 0.5
+  settings:
+    quote_min_words: 3
+    quote_full_credit_words: 50
+    quote_zero_credit_words: 100
+    max_quotes: 3
+    max_extra_chars: 0
+    answer_copy_ratio: 0.8
+    answer_copy_cap: 0.5
