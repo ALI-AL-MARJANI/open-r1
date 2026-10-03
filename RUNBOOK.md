@@ -33,7 +33,7 @@ before committing to a full run, and update this table.
 | Step | Apple M4, 16 GB (MPS) | 1x T4 16 GB | 1x L4 / A10G 24 GB |
 |---|---|---|---|
 | Reward-hacking report | 10 s (measured, CPU) | same | same |
-| Evaluation, 0.5B, 4 datasets (3,000 examples) | 65 min generation time (measured: 18 + 9 + 22 + 16 min) | ~15 min (estimate) | ~10 min (estimate) |
+| Evaluation, 0.5B, 4 datasets (3,000 examples) | 65 and 82 min generation time on two runs (measured; the committed run took 35 + 9 + 23 + 16 min) | ~15 min (estimate) | ~10 min (estimate) |
 | Evaluation, 1.5B, 4 datasets | ~3x the 0.5B time (estimate) | ~30 min (estimate) | ~20 min (estimate) |
 | SFT 0.5B, 250 steps | ~30 min (estimate) | ~10 min (estimate) | ~5 min (estimate) |
 | GRPO 0.5B, 500 steps | not practical: 130-195 s per step measured on a 3-step pilot, with 8 GB of swap in use (about one day for 500 steps) | ~4-6 h (estimate) | ~2-3 h (estimate) |
