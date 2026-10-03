@@ -36,7 +36,7 @@ before committing to a full run, and update this table.
 | Evaluation, 0.5B, 4 datasets (3,000 examples) | 65 min generation time (measured: 18 + 9 + 22 + 16 min) | ~15 min (estimate) | ~10 min (estimate) |
 | Evaluation, 1.5B, 4 datasets | ~3x the 0.5B time (estimate) | ~30 min (estimate) | ~20 min (estimate) |
 | SFT 0.5B, 250 steps | ~30 min (estimate) | ~10 min (estimate) | ~5 min (estimate) |
-| GRPO 0.5B, 500 steps | ~8-12 h (estimate from 20 s/step measured on a 4x smaller step) | ~4-6 h (estimate) | ~2-3 h (estimate) |
+| GRPO 0.5B, 500 steps | not practical: 130-195 s per step measured on a 3-step pilot, with 8 GB of swap in use (about one day for 500 steps) | ~4-6 h (estimate) | ~2-3 h (estimate) |
 | GRPO 1.5B, 300 steps | not recommended | ~8-12 h, memory-tight (estimate, untested) | ~4-6 h (estimate) |
 
 Rented GPU prices change often; at roughly 0.5-1 USD per hour for an L4 or A10G, the
@@ -115,6 +115,10 @@ Adapters are written to `data/` (not committed); logs and provenance to
 `results/sft/sft_qwen0.5b/seed<k>/`.
 
 ## 4. GRPO
+
+[notebooks/grounded_r1_gpu_run.ipynb](notebooks/grounded_r1_gpu_run.ipynb) runs this section
+for seed 0 on a free Kaggle or Colab T4 (pilot, full run, curves, evaluation, download of
+`results/`). It has not been executed on a T4 yet.
 
 Pilot first (5 steps, a few minutes) to check memory and measure the step time:
 
