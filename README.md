@@ -365,7 +365,9 @@ python scripts/grounded/make_tables.py
 ```
 
 The full plan (3 seeds, 6 ablations, 1.5B run) is about 30 GPU-hours on a 24 GB card
-(estimate, see the RUNBOOK); the 0.5B evaluation runs on a 16 GB laptop.
+(estimate, see the RUNBOOK). The 0.5B evaluation runs on a 16 GB laptop; GRPO training
+does not in practice (130-195 s per step measured on an Apple M4), and
+[notebooks/grounded_r1_gpu_run.ipynb](notebooks/grounded_r1_gpu_run.ipynb) runs it on a free T4.
 
 ## Repository structure
 
@@ -385,6 +387,7 @@ scripts/grounded/          train_grpo.py, train_sft.py, evaluate.py, make_tables
 configs/grounded/          one YAML per experiment (main runs, SFT baselines, ablations, evaluation)
 tests/grounded/            162 tests: parser fuzzing, rewards, reward shortcuts, data, metrics, configs
 results/                   committed raw results, per-example predictions and generated tables
+notebooks/                 Kaggle / Colab notebook that runs the main GRPO configuration on a T4
 docs/upstream_README.md    README of huggingface/open-r1
 src/open_r1/*.py, recipes/, slurm/, scripts/*.py   upstream open-r1, unchanged
 ```
