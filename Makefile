@@ -51,3 +51,19 @@ evaluate:
 			--use-chat-template \
 			--output-dir data/evals/$(MODEL); \
 	fi
+
+# Grounded-R1 (additions of this fork): lint and fast tests, no GPU or network needed
+
+grounded_dirs := src/open_r1/grounded tests/grounded scripts/grounded
+ruff_grounded := --isolated --line-length 119 --target-version py310
+
+grounded-style:
+	ruff check $(ruff_grounded) --select E,F,W,I,B,UP,SIM --ignore B905 --fix $(grounded_dirs)
+	ruff format $(ruff_grounded) --exclude src/open_r1/grounded/legacy_v0.py $(grounded_dirs)
+
+grounded-quality:
+	ruff check $(ruff_grounded) --select E,F,W,I,B,UP,SIM --ignore B905 $(grounded_dirs)
+	ruff format $(ruff_grounded) --exclude src/open_r1/grounded/legacy_v0.py --check $(grounded_dirs)
+
+grounded-test:
+	pytest -q tests/grounded

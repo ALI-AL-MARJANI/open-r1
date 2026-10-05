@@ -1,0 +1,20 @@
+# Pinned environment of the Grounded-R1 experiments (Python >= 3.10).
+# These are the versions the code was written and smoke-tested against. They differ
+# from the pins of the upstream open-r1 package in setup.py (trl==0.18.0), which the
+# grounded scripts do not use: install this file in a separate environment.
+#
+#   pip install -r requirements-grounded.txt
+#
+# On CUDA machines, install the torch build matching your driver first if needed
+# (https://pytorch.org/get-started/locally/).
+torch==2.14.1
+transformers==5.18.0
+trl==0.29.1
+peft==0.21.2
+datasets==5.0.1
+accelerate==1.15.0
+pyyaml==6.0.3
+matplotlib==3.11.2
+# development
+pytest==9.1.1
+ruff==0.16.10
