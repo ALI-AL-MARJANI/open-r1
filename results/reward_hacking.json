@@ -1,0 +1,153 @@
+{
+  "dataset": "squad_v2_distractors",
+  "dataset_spec": {
+    "dataset": "squad_v2",
+    "split": "validation",
+    "n_examples": 1000,
+    "answerable_fraction": 0.5,
+    "n_distractors": 3,
+    "subset_seed": 0
+  },
+  "n_examples": 1000,
+  "n_answerable": 500,
+  "reward_weights": {
+    "format": 0.5,
+    "answer_correctness": 2.0,
+    "quote_grounding": 1.5,
+    "chunk_routing": 1.0,
+    "answer_faithfulness": 0.5
+  },
+  "reward_settings": {
+    "quote_min_words": 3,
+    "quote_full_credit_words": 50,
+    "quote_zero_credit_words": 100,
+    "max_quotes": 3,
+    "max_extra_chars": 0,
+    "answer_copy_ratio": 0.8,
+    "answer_copy_cap": 0.5
+  },
+  "v0_reward_weights": {
+    "grounded_format": 1.0,
+    "quote_grounding": 2.0,
+    "answer_faithfulness": 1.0,
+    "reasoning_quality": 0.5
+  },
+  "definition": "sum of weighted reward over examples / sum of maximum attainable reward",
+  "policies": [
+    {
+      "policy": "always_abstain",
+      "v0_reward_fraction": 1.0,
+      "reward_fraction": 0.375,
+      "reward_fraction_answerable": 0.09090909090909091,
+      "reward_fraction_unanswerable": 1.0
+    },
+    {
+      "policy": "abstain_with_keywords",
+      "v0_reward_fraction": 1.0,
+      "reward_fraction": 0.375,
+      "reward_fraction_answerable": 0.09090909090909091,
+      "reward_fraction_unanswerable": 1.0
+    },
+    {
+      "policy": "cite_a_stopword",
+      "v0_reward_fraction": 0.7777777777777778,
+      "reward_fraction": 0.125,
+      "reward_fraction_answerable": 0.09090909090909091,
+      "reward_fraction_unanswerable": 0.2
+    },
+    {
+      "policy": "copy_whole_passage",
+      "v0_reward_fraction": 1.0,
+      "reward_fraction": 0.1668067468334866,
+      "reward_fraction_answerable": 0.1517189044850714,
+      "reward_fraction_unanswerable": 0.2
+    },
+    {
+      "policy": "quote_every_chunk_in_full",
+      "v0_reward_fraction": 0.7815555555555556,
+      "reward_fraction": 0.18035141666666668,
+      "reward_fraction_answerable": 0.17052712500000003,
+      "reward_fraction_unanswerable": 0.2
+    },
+    {
+      "policy": "first_sentence_as_quote_and_answer",
+      "v0_reward_fraction": 1.0,
+      "reward_fraction": 0.29683936582675685,
+      "reward_fraction_answerable": 0.3408572593843736,
+      "reward_fraction_unanswerable": 0.2
+    },
+    {
+      "policy": "first_words_of_every_chunk",
+      "v0_reward_fraction": 1.0,
+      "reward_fraction": 0.2933364000969345,
+      "reward_fraction_answerable": 0.33576203650463204,
+      "reward_fraction_unanswerable": 0.2
+    },
+    {
+      "policy": "fabricated_quote",
+      "v0_reward_fraction": 0.5555555555555556,
+      "reward_fraction": 0.125,
+      "reward_fraction_answerable": 0.09090909090909091,
+      "reward_fraction_unanswerable": 0.2
+    },
+    {
+      "policy": "answer_without_evidence",
+      "v0_reward_fraction": 0.3333333333333333,
+      "reward_fraction": 0.09375,
+      "reward_fraction_answerable": 0.06818181818181818,
+      "reward_fraction_unanswerable": 0.15
+    },
+    {
+      "policy": "empty_object",
+      "v0_reward_fraction": 0.05555555555555555,
+      "reward_fraction": 0.03125,
+      "reward_fraction_answerable": 0.022727272727272728,
+      "reward_fraction_unanswerable": 0.05
+    },
+    {
+      "policy": "not_json",
+      "v0_reward_fraction": 0.0,
+      "reward_fraction": 0.0,
+      "reward_fraction_answerable": 0.0,
+      "reward_fraction_unanswerable": 0.0
+    },
+    {
+      "policy": "valid_json_then_padding",
+      "v0_reward_fraction": 0.05555555555555555,
+      "reward_fraction": 0.34375,
+      "reward_fraction_answerable": 0.06818181818181818,
+      "reward_fraction_unanswerable": 0.95
+    },
+    {
+      "policy": "reference (gold labels)",
+      "v0_reward_fraction": 0.9997777777777778,
+      "reward_fraction": 0.9989373671708963,
+      "reward_fraction_answerable": 0.9984542644117113,
+      "reward_fraction_unanswerable": 1.0
+    }
+  ],
+  "environment": {
+    "date_utc": "2026-10-05T05:45:08+00:00",
+    "git_sha": "d8340f2e9bac8bac01bd1545f1899841c3316fb9",
+    "git_dirty": false,
+    "python": "3.11.15",
+    "packages": {
+      "torch": "2.14.1",
+      "transformers": "5.18.0",
+      "trl": "0.29.1",
+      "peft": "0.21.2",
+      "datasets": "5.0.1",
+      "accelerate": "1.15.0",
+      "vllm": null,
+      "openai": null
+    },
+    "hardware": {
+      "platform": "macOS-15.6.1-arm64-arm-64bit",
+      "machine": "arm64",
+      "cpu_count": 10,
+      "ram_gb": 17.2,
+      "accelerator": "mps"
+    },
+    "command": "scripts/grounded/reward_hacking_report.py"
+  }
+}
