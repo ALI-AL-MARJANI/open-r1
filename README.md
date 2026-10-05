@@ -269,6 +269,7 @@ From `results/eval/zero_shot_qwen0.5b/` (Apple M4, float16, greedy decoding):
   is the label-mapping rule, not only the model.
 * The HotpotQA and PubMedQA files were generated with batch size 2 and the SQuAD files
   with batch size 8 (recorded in each JSON); decoding is greedy in both cases.
+* The evaluation was run twice on the same machine; the 3,000 outputs were identical.
 
 ### Ablations
 
