@@ -1,806 +1,413 @@
-# Open R1
+# Grounded-R1
 
-*A fully open reproduction of DeepSeek-R1. This repo is a work in progress, let's build it together!*
+[![CI](https://github.com/ALI-AL-MARJANI/open-r1/actions/workflows/ci.yml/badge.svg)](https://github.com/ALI-AL-MARJANI/open-r1/actions/workflows/ci.yml)
 
-**Table of Contents**  
-1. [Overview](#overview)  
-2. [Plan of attack](#plan-of-attack)  
-3. [Installation](#installation)  
-4. [Training models](#training-models)  
-   - [SFT](#sft)  
-   - [GRPO](#grpo)  
-5. [Evaluating models](#evaluating-models)  
-6. [Reproducing Deepseek's evaluation results](#reproducing-deepseeks-evaluation-results)  
-7. [Data generation](#data-generation)  
-   - [Generate data from a smol distilled R1 model](#generate-data-from-a-smol-distilled-r1-model)  
-   - [Generate data from DeepSeek-R1](#generate-data-from-deepseek-r1)  
-8. [Contributing](#contributing)
+**Can reinforcement learning teach a 0.5B model to quote its sources word for word, and can the reward be trusted?**
 
-## Overview
+Out of the box, Qwen2.5-0.5B alters or invents **1 in 4** of the quotes it gives as
+evidence, and says "the context does not answer this" for **2%** of the questions that
+have no answer. Grounded-R1 is a setup to fine-tune it with GRPO on rewards checked by
+string matching against the source, with no judge model.
 
-The goal of this repo is to build the missing pieces of the R1 pipeline such that everybody can reproduce and build on top of it. The project is simple by design and mostly consists of:
+The first version of those rewards had a flaw that is easy to miss: **a model that
+always refuses to answer scored 100% of the maximum reward.** This repository
+documents the flaw, the redesign that brings that score down to 37.5%, the tests that
+keep it there, and the experimental protocol built to measure whether the training
+then works.
 
+| | |
+|---|---|
+| Reward shortcut closed | "always abstain": 100% → 37.5% of the maximum reward (9.1% on answerable questions) |
+| Baseline measured | zero-shot Qwen2.5-0.5B: F1 14.2, 26.4% of quotes not found in the context (SQuAD v2 with distractors) |
+| Trained models | **not yet**: GRPO, SFT and ablation runs are pending, their rows read `TBD (run pending)` |
+| Reproducibility | every number comes from a file in [`results/`](results/) with its git SHA, library versions and hardware; 162 tests run in under a second on CPU |
 
-- `src/open_r1`: contains the scripts to train models as well as generate synthetic data:
-    - `grpo.py`: trains a model with GRPO on a given dataset.
-    - `sft.py`: performs a simple SFT of a model on a dataset.
-    - `generate.py`: generates synthetic data from a model using [Distilabel](https://github.com/argilla-io/distilabel).
-- `Makefile`: contains easy-to-run commands for each step in the R1 pipeline leveraging the scripts above.
+> **Status.** Nothing here shows that the method improves over its baselines yet.
+> [RUNBOOK.md](RUNBOOK.md) lists the exact commands for the pending runs.
 
-### Plan of attack
+Built on a fork of [huggingface/open-r1](https://github.com/huggingface/open-r1)
+(Apache-2.0). The upstream training code, recipes and scripts are kept as they are,
+except for the upstream CI and Dependabot configuration, which this fork replaces
+with its own workflow; the upstream README is preserved in
+[docs/upstream_README.md](docs/upstream_README.md). Everything specific to this
+project lives in `src/open_r1/grounded/`, `scripts/grounded/`, `configs/grounded/`,
+`tests/grounded/`, `results/`, `RUNBOOK.md` and `requirements-grounded.txt`, and uses
+`trl.GRPOTrainer` directly rather than the upstream training script.
 
-We will use the DeepSeek-R1 [tech report](https://github.com/deepseek-ai/DeepSeek-R1) as a guide, which can roughly be broken down into three main steps:
+## TL;DR
 
-* Step 1: replicate the R1-Distill models by distilling a high-quality corpus from DeepSeek-R1.
-* Step 2: replicate the pure RL pipeline that DeepSeek used to create R1-Zero. This will likely involve curating new, large-scale datasets for math, reasoning, and code.
-* Step 3: show we can go from base model to RL-tuned via multi-stage training.
+**1. Model results** (SQuAD v2 dev subset with distractors, in-distribution; percentages)
 
-<center>
-    <img src="assets/plan-of-attack.png" width="500">
-</center>
+| Run | Seeds | n | Format ↑ | EM ↑ | F1 ↑ | HasAns F1 ↑ | NoAns acc. ↑ | Abstention F1 ↑ | Unverified quotes ↓ | Evidence recall ↑ | Chunk F1 ↑ |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `zero_shot_qwen0.5b` | 1 | 1000 | 94.0 [92.5, 95.5] | 3.9 [2.7, 5.1] | 14.2 [12.7, 15.9] | 26.6 [24.3, 29.0] | 1.8 [0.8, 3.0] | 2.0 [0.4, 3.8] | 26.4 [23.5, 29.2] | 29.6 [25.6, 33.4] | 46.3 [42.5, 50.6] |
+| `few_shot_qwen0.5b` | 1 | 1000 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+| `sft_qwen0.5b` | 3 | 1000 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+| `grpo_qwen0.5b` | 3 | 1000 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+| `zero_shot_qwen1.5b` | 1 | 1000 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+| `sft_qwen1.5b` | 1 | 1000 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+| `grpo_qwen1.5b` | 1 | 1000 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
 
-## News 🗞️
+Setup: 1,000 SQuAD v2 dev questions (500 answerable, 500 unanswerable, subset seed 0),
+gold paragraph plus 3 same-article distractors, greedy decoding. Source:
+`results/tables/squad_v2_distractors.md`, generated by `scripts/grounded/make_tables.py`
+from `results/eval/`. Single runs show a 95% bootstrap interval over examples; trained
+models will be reported as mean ± standard deviation over 3 training seeds. The only
+measured row is the zero-shot 0.5B model (Apple M4, MPS, float16).
 
-* **🧑‍🍳 [2025/05/26] (Step 1 completed!)** We release [**Mixture-of-Thoughts**](https://huggingface.co/datasets/open-r1/Mixture-of-Thoughts)--a curated reasoning dataset of 350k verified traces distilled from R1. The dataset spans tasks in mathematics, coding, and science, and is designed to teach language models to reason step-by-step. We also provide a recipe to train [OpenR1-Distill-7B](https://huggingface.co/open-r1/OpenR1-Distill-7B), which replicates the reasoning capabilities of [deepseek-ai/DeepSeek-R1-Distill-Qwen-7B](https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B) and marks the completion of step 1 in the Open R1 project.
-* **⚡️ [2025/03/11] [(update #3)](https://huggingface.co/blog/open-r1/update-3):** We release the [**CodeForces-CoTs**](https://huggingface.co/datasets/open-r1/codeforces-cots) dataset of 10k competitive programming problems and 100k solutions distilled from R1. We also release IOI24: a new benchmark of _very_ hard problems from international olympiads. A 7B Qwen model trained on CodeForces-CoTs can outperform Claude 3.7 Sonnet on IOI24, while a 32B model can outperform R1 itself.
-* **∞ [2025/02/10] [(update #2)](https://huggingface.co/blog/open-r1/update-2):** We release the [**OpenR1-Math-220k**](https://huggingface.co/datasets/open-r1/OpenR1-Math-220k) dataset of 220k traces distilled from R1 on a new version of NuminaMath. Models trained on this dataset match the performance of DeepSeek's distilled ones.
-* **🔥 [2025/02/02] [(update #1)](https://huggingface.co/blog/open-r1/update-1):** We implement the first parts of the [training](https://github.com/huggingface/open-r1?tab=readme-ov-file#training-models), [inference](https://github.com/huggingface/open-r1?tab=readme-ov-file#data-generation), and [evaluation](https://github.com/huggingface/open-r1?tab=readme-ov-file#reproducing-deepseeks-evaluation-results) pipelines. Let's go!  
+**2. Reward shortcuts** (share of the maximum reward obtained by policies that ignore the question)
 
-## Installation
+| Policy | First reward version (v0) | Current rewards |
+|---|---:|---:|
+| Always abstain | 100.0% | 37.5% |
+| Copy the first passage as quote and answer | 100.0% | 16.7% |
+| First sentence as quote and answer | 100.0% | 29.7% |
+| Cite a stopword (`"the"`) | 77.8% | 12.5% |
+| Fabricated quote | 55.6% | 12.5% |
+| Reference response built from gold labels | 100.0% | 99.9% |
 
-> [!CAUTION]
-> Libraries rely on CUDA 12.4. If you see errors related to segmentation faults, double check the version your system is running with `nvcc --version`.
+Setup: same 1,000 examples, CPU only, no model involved. Source:
+`results/reward_hacking.json` (12 policies), generated by
+`scripts/grounded/reward_hacking_report.py`. "Always abstain" cannot go below 37.5%
+on a balanced set because it is correct on the unanswerable half; on the answerable
+half it obtains 9.1%.
 
-To run the code in this project, first, create a Python virtual environment using e.g. `uv`.
-To install `uv`, follow the [UV Installation Guide](https://docs.astral.sh/uv/getting-started/installation/).
+## Motivation
 
+Retrieval-augmented systems often support an answer with a quotation that does not
+appear in the source. For extractive questions, a quotation can be verified by string
+matching, which makes it a cheap and exact reward for reinforcement learning. This
+project studies, at small scale, whether GRPO with such rewards improves answer
+quality and citation validity over prompting and supervised fine-tuning, and which
+reward terms matter.
 
-> [!NOTE]
-> As a shortcut, run `make install` to setup development libraries (spelled out below). Afterwards, if everything is setup correctly you can try out the Open-R1 models.
+## Method
 
+### Task and output format
 
-```shell
-uv venv openr1 --python 3.11 && source openr1/bin/activate && uv pip install --upgrade pip
+The model receives context chunks with ids and a question, and must return one JSON
+object, evidence first:
+
+```json
+{"extracted_quotes": [{"chunk_id": "c3", "exact_quote": "verbatim text from chunk c3"}],
+ "is_context_sufficient": true,
+ "final_answer": "short answer"}
 ```
 
-> [!TIP]
-> For Hugging Face cluster users, add `export UV_LINK_MODE=copy` to your `.bashrc` to suppress cache warnings from `uv`
+For a question the context cannot answer, the expected output is
+`{"extracted_quotes": [], "is_context_sufficient": false, "final_answer": ""}`.
+The system prompt is in `src/open_r1/grounded/prompts.py`.
 
-Next, install vLLM and FlashAttention:
+### Rewards
 
-```shell
-uv pip install vllm==0.8.5.post1
-uv pip install setuptools && uv pip install flash-attn --no-build-isolation
+All rewards are computed from the completion and the gold labels of the example
+(`src/open_r1/grounded/rewards.py`). `A` denotes "the question is answerable".
+A quote has quality `q ∈ [0, 1]`: 0 if it is not a verbatim substring of the context
+(up to whitespace), shorter than 3 words or made only of stopwords; 1 up to 50 words;
+decaying linearly to 0 at 100 words.
+
+| Reward | Weight | Definition |
+|---|---:|---|
+| `format` | 0.5 | 0 no JSON object · 0.25 missing keys · 0.5 wrong types · 0.75 valid but with text outside the object, or abstaining with quotes, or answering without quotes · 1 otherwise |
+| `answer_correctness` | 2.0 | `A`: max SQuAD token F1 of `final_answer` against the gold answers, 0 if the model abstains. `¬A`: 1 if the model abstains, else 0 |
+| `quote_grounding` | 1.5 | `A`: `min(1, 3/n) · (0.5 · mean(q) + 0.5 · s)`, with `n` the number of quotes and `s = 1` if a quote with `q > 0` contains a gold answer; 0 if the model abstains. `¬A`: undefined |
+| `chunk_routing` | 1.0 | `A`: F1 between cited chunks and gold chunks; a citation counts only if its quote has `q > 0` in the chunk it names. `¬A`: undefined |
+| `answer_faithfulness` | 0.5 | `A`: 1 if the answer occurs in a quote with `q > 0` (else the share of its tokens found there), capped at 0.5 when the answer is at least 80% as long as the quote. `¬A`: undefined |
+
+An invalid output scores 0 on every defined reward. "Undefined" rewards return `None`,
+which `trl.GRPOTrainer` excludes from the weighted sum for that sample; whether a
+reward is defined depends only on the labels, so all completions of a prompt are
+scored on the same terms. The total reward of a completion is the weighted sum of the
+defined terms (maximum 5.5 on answerable questions, 2.5 on unanswerable ones). Weights
+and shaping constants are set in the experiment YAML, not in the code.
+
+### Optimisation
+
+`trl.GRPOTrainer` (TRL 0.29.1) with LoRA adapters (r = 32 on all attention and MLP
+projections). For each prompt, 8 completions are sampled at temperature 1.0; the
+advantage of a completion is its total reward standardised within the group,
+`Â_i = (r_i − mean(r)) / std(r)`, and the policy is updated with the clipped
+surrogate objective (ε = 0.2). One optimizer step uses 4 prompts (32 completions).
+Hyperparameters: [configs/grounded/grpo_qwen0.5b.yaml](configs/grounded/grpo_qwen0.5b.yaml).
+
+### Deviations from the reference methods
+
+| Reference | This project |
+|---|---|
+| GRPO (Shao et al., 2024): per-sequence length normalisation of the loss, KL penalty to a reference policy (β = 0.04) | TRL's default loss normalisation (`loss_type="dapo"`, token-level over the batch, Yu et al., 2025) and no KL term (β = 0). β = 0.04 and the Dr. GRPO objective (Liu et al., 2025: constant length normalisation, no division by the standard deviation) are ablations |
+| DeepSeek-R1 (Guo et al., 2025): full fine-tuning of large models | LoRA on 0.5B and 1.5B models, single GPU |
+| ALCE (Gao et al., 2023), Trust-Align (Song et al., 2025), Ground-GRPO (Sim et al., 2025): citations verified with an NLI model on long-form answers | Citations verified by exact substring match on short extractive answers. This is exact and free, but only applies when the answer is a span of the context, and it cannot tell that a verbatim quote fails to support the answer beyond checking that it contains the gold answer string |
+| Ground-GRPO (Sim et al., 2025): two training stages (answerable questions first, then refusal), 4B-9B models, full fine-tuning | One stage on a 50/50 mix of answerable and unanswerable questions |
+
+Sim et al. (2025) already show that GRPO with answer, citation and refusal rewards
+improves grounded answering on 4B-9B models. This project does not claim that idea;
+it is a small-scale study with string-verifiable rewards and an explicit analysis of
+reward shortcuts.
+
+## Experimental protocol
+
+### Datasets
+
+| Name | Source (Hub id, split) | Size used | Construction |
+|---|---|---|---|
+| Training pool | SQuAD v2 (`rajpurkar/squad_v2`, train) | 2,000 (0.5B) or 1,200 (1.5B) questions, 50% unanswerable, pool seed 0 | Gold paragraph + 3 other paragraphs of the same article; paragraphs containing a gold answer string are not used as distractors; prompts over 700 words are excluded |
+| `squad_v2_distractors` | SQuAD v2, validation | 1,000 questions, 50% unanswerable, subset seed 0 | Same construction as training, no length filter |
+| `squad_v2` | SQuAD v2, validation | the same 1,000 questions | Gold paragraph only (standard SQuAD v2 input) |
+| `hotpotqa` (transfer) | HotpotQA distractor (`hotpotqa/hotpot_qa`, validation) | 500 of 7,405 questions, subset seed 0 | 10 paragraphs (2 gold), title prepended to each paragraph |
+| `pubmedqa` (transfer) | PubMedQA PQA-L (`qiaojin/PubMedQA`, `pqa_labeled`) | 500 of 1,000 questions, subset seed 0 | Abstract sections as chunks, conclusion withheld (reasoning-required setting) |
+
+Chunk ids are `c1 … cN`, assigned after a per-example shuffle seeded by the example
+id, so neither the id nor the position reveals the gold chunk. No model is trained on
+HotpotQA or PubMedQA. Full protocol: [configs/grounded/eval.yaml](configs/grounded/eval.yaml).
+
+### Metrics
+
+Defined in `src/open_r1/grounded/metrics.py` (module docstring) and unit-tested.
+
+* **EM / F1, HasAns, NoAns**: official SQuAD v2 definitions (Rajpurkar et al., 2018).
+  An abstention is the empty prediction. An output that does not parse counts as wrong
+  on every question, including unanswerable ones.
+* **Abstention precision / recall / F1**: abstention as a detector of unanswerable questions.
+* **Unverified quotes**: quotes that are not a verbatim substring of any chunk, over all
+  quotes produced. This is the "hallucinated citation" rate.
+* **Evidence recall**: answerable questions with a verbatim quote containing a gold answer.
+* **Chunk precision / recall / F1**: cited chunk ids against gold chunk ids.
+* **HotpotQA**: answer EM/F1, supporting-fact EM/F1 and joint EM/F1 with the official
+  formulas (Yang et al., 2018). Predicted supporting sentences are derived from the
+  quotes (a sentence is predicted when a verbatim quote covers at least half of it).
+* **PubMedQA**: 3-way accuracy and macro-F1; the predicted label is the first word of the
+  answer if it is yes or no, and maybe otherwise.
+
+Uncertainty: 95% percentile bootstrap over examples (1,000 resamples) for every run;
+mean ± standard deviation over 3 training seeds for trained models; paired bootstrap
+test (10,000 resamples) for comparisons between two systems
+(`scripts/grounded/compare.py`).
+
+### Baselines
+
+| Baseline | Role |
+|---|---|
+| Zero-shot base model with the system prompt | simple baseline |
+| Few-shot (3 fixed demonstrations from the training split) | prompting baseline |
+| SFT with LoRA on reference responses (quote = sentence containing the gold span) | supervised reference with the same data, adapter shape and prompt as GRPO |
+| Zero-shot Qwen2.5-7B served locally (optional) | larger-model reference |
+
+### Published reference points
+
+These numbers come from the cited papers, under protocols that differ from this one
+(full dev or test sets, extractive or task-specific models). They are given for
+orientation and are not comparable row by row with the tables of this repository.
+
+| Benchmark | Paper (authors, year) | Reported result |
+|---|---|---|
+| SQuAD v2 | Paper (Rajpurkar et al., 2018) | a system with 86% F1 on SQuAD 1.1 obtains 66% F1 on SQuAD 2.0 |
+| HotpotQA distractor, dev | Paper (Yang et al., 2018), baseline model | answer EM / F1 44.44 / 58.28, supporting-fact EM / F1 21.95 / 66.66, joint EM / F1 11.56 / 40.86 |
+| PubMedQA, reasoning-required | Paper (Jin et al., 2019) | best model 68.1% accuracy, single human 78.0%, majority class 55.2% |
+
+## Results
+
+### In-distribution: SQuAD v2 with distractors
+
+See the TL;DR table. The same 1,000 questions without distractors:
+
+| Run | Seeds | n | Format ↑ | EM ↑ | F1 ↑ | HasAns F1 ↑ | NoAns acc. ↑ | Abstention F1 ↑ | Unverified quotes ↓ | Evidence recall ↑ | Chunk F1 ↑ |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `zero_shot_qwen0.5b` | 1 | 1000 | 97.8 [96.9, 98.6] | 8.5 [6.8, 10.2] | 21.2 [19.3, 23.3] | 36.2 [33.7, 39.1] | 6.2 [4.2, 8.4] | 3.9 [1.9, 6.3] | 29.4 [26.2, 32.6] | 39.8 [35.4, 44.2] | 64.3 [60.1, 68.4] |
+| `few_shot_qwen0.5b` | 1 | 1000 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+| `sft_qwen0.5b` | 3 | 1000 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+| `grpo_qwen0.5b` | 3 | 1000 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+
+Source: `results/tables/squad_v2.md`.
+
+### Transfer (no training on these datasets)
+
+HotpotQA distractor, 500 dev questions:
+
+| Run | Seeds | n | Format ↑ | Ans EM ↑ | Ans F1 ↑ | Sup EM ↑ | Sup F1 ↑ | Joint F1 ↑ | Chunk F1 ↑ | Unverified quotes ↓ |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `zero_shot_qwen0.5b` | 1 | 500 | 82.0 [78.6, 85.2] | 5.0 [3.2, 7.0] | 14.6 [12.4, 16.8] | 0.2 [0.0, 0.8] | 11.7 [9.5, 13.8] | 3.3 [2.4, 4.2] | 16.5 [14.1, 18.9] | 25.3 [21.6, 29.4] |
+| `few_shot_qwen0.5b` | 1 | 500 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+| `sft_qwen0.5b` | 3 | 500 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+| `grpo_qwen0.5b` | 3 | 500 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+| `grpo_qwen1.5b` | 1 | 500 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+
+Source: `results/tables/hotpotqa.md`.
+
+PubMedQA PQA-L, 500 questions:
+
+| Run | Seeds | n | Format ↑ | Accuracy ↑ | Macro F1 ↑ | Answer rate ↑ | Unverified quotes ↓ |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `zero_shot_qwen0.5b` | 1 | 500 | 88.8 [85.8, 91.4] | 39.4 [35.0, 43.4] | 25.9 [22.8, 28.8] | 88.8 [85.8, 91.4] | 15.2 [11.6, 19.7] |
+| `few_shot_qwen0.5b` | 1 | 500 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+| `sft_qwen0.5b` | 3 | 500 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+| `grpo_qwen0.5b` | 3 | 500 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+| `grpo_qwen1.5b` | 1 | 500 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+
+Source: `results/tables/pubmedqa.md`.
+
+### Zero-shot baseline: observations
+
+From `results/eval/zero_shot_qwen0.5b/` (Apple M4, float16, greedy decoding):
+
+* **The base model almost never abstains.** It answers 93.3% of the SQuAD v2 questions
+  with distractors and abstains correctly on 1.8% of the unanswerable ones
+  (abstention recall 1.0%), which caps its overall F1 at 14.2.
+* **About a quarter of its quotes are not in the context**: 26.4% with distractors,
+  29.4% with the gold paragraph alone, 25.3% on HotpotQA.
+* **Distractors hurt**: F1 on answerable questions drops from 36.2 to 26.6 and chunk F1
+  from 64.3 to 46.3 when three same-article paragraphs are added.
+* **Its reward is below that of always abstaining** (35.7% of the maximum against
+  37.5%). Abstaining still scores lowest on answerable prompts (9.1%), but the
+  abstention rate is the first curve to check in a GRPO run; it is logged at every step.
+* **HotpotQA is far out of reach zero-shot**: supporting-fact F1 11.7 and joint F1 3.3,
+  against 66.66 and 40.86 for the 2018 baseline trained on the task (see the reference
+  table; different protocol).
+* **PubMedQA accuracy (39.4%) is below the majority-class rate** reported by Jin et al.
+  (55.2%). The model never produces an answer starting with "no": 121 of the 172 "no"
+  questions are answered "yes", and 175 outputs are mapped to "maybe" (56 that do not
+  parse and 119 that abstain or whose answer starts with neither word). Part of this
+  is the label-mapping rule, not only the model.
+* The HotpotQA and PubMedQA files were generated with batch size 2 and the SQuAD files
+  with batch size 8 (recorded in each JSON); decoding is greedy in both cases.
+
+### Ablations
+
+One seed each, same protocol as the main 0.5B run.
+
+| Configuration | Change | SQuAD v2 (distractors) F1 | Unverified quotes | Chunk F1 |
+|---|---|---:|---:|---:|
+| `grpo_qwen0.5b` | full reward suite | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+| `ablation_no_answer_correctness` | weight 2.0 → 0 | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+| `ablation_no_quote_grounding` | weight 1.5 → 0 | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+| `ablation_no_chunk_routing` | weight 1.0 → 0 | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+| `ablation_no_answer_faithfulness` | weight 0.5 → 0 | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+| `ablation_kl_beta` | β 0 → 0.04 | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+| `ablation_dr_grpo` | Dr. GRPO objective | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+
+Training curves (`results/grpo/<run>/training_curves.png`) and the qualitative error
+analysis (before/after examples, including regressions) will be added with the runs.
+
+### Reward shortcuts
+
+The first version of the reward suite (kept in `src/open_r1/grounded/legacy_v0.py`
+for this comparison only) rewarded any abstention without looking at the answerability
+label, never compared the answer with the gold answer, and scored a free-text
+reasoning field by keywords and length. Full table from `results/reward_hacking.md`:
+
+| Policy (ignores the question) | v0 rewards | Current rewards | Answerable half | Unanswerable half |
+|---|---:|---:|---:|---:|
+| `always_abstain` | 100.0% | 37.5% | 9.1% | 100.0% |
+| `abstain_with_keywords` | 100.0% | 37.5% | 9.1% | 100.0% |
+| `cite_a_stopword` | 77.8% | 12.5% | 9.1% | 20.0% |
+| `copy_whole_passage` | 100.0% | 16.7% | 15.2% | 20.0% |
+| `quote_every_chunk_in_full` | 78.2% | 18.0% | 17.1% | 20.0% |
+| `first_sentence_as_quote_and_answer` | 100.0% | 29.7% | 34.1% | 20.0% |
+| `first_words_of_every_chunk` | 100.0% | 29.3% | 33.6% | 20.0% |
+| `fabricated_quote` | 55.6% | 12.5% | 9.1% | 20.0% |
+| `answer_without_evidence` | 33.3% | 9.4% | 6.8% | 15.0% |
+| `empty_object` | 5.6% | 3.1% | 2.3% | 5.0% |
+| `not_json` | 0.0% | 0.0% | 0.0% | 0.0% |
+| `valid_json_then_padding` | 5.6% | 34.4% | 6.8% | 95.0% |
+| `reference (gold labels)` | 100.0% | 99.9% | 99.8% | 100.0% |
+
+Reading the table:
+
+* Under v0, three policies that never read the question reached the maximum reward.
+  GRPO trained with those rewards would have been pushed towards always abstaining.
+* Under the current rewards, the best question-independent policy obtains 37.5%, and
+  no always-answering policy exceeds 34.1% on answerable questions.
+* Remaining partial credit is by design: quoting 8 verbatim words from every chunk
+  earns 33.6% on answerable questions, because verbatim quotes are rewarded even when
+  they do not contain the answer (the `0.5 · mean(q)` term) and one of the chunks is gold.
+* The reference response does not reach 100%: in 7 of the 500 answerable questions it
+  loses part of the reward to the shaping rules. In 6, the gold answer is almost the
+  whole supporting sentence, so `answer_faithfulness` is capped at 0.5; in 1, the
+  supporting sentence has two words and counts as a trivial quote.
+
+The same policies are asserted to stay below 50% of the maximum in
+`tests/grounded/test_reward_hacking.py`.
+
+## Limitations and threats to validity
+
+* **No trained model yet.** The repository currently supports no claim about GRPO.
+* **Exact-match verification is narrow.** It certifies that a quote exists in the
+  context, not that it supports the answer. A model can quote a true but irrelevant
+  sentence and give a wrong answer; this shows up in F1 and evidence recall, not in the
+  unverified-quote rate. It does not extend to abstractive or long-form answers.
+* **Sub-sampled evaluation.** 1,000 SQuAD v2 and 500 HotpotQA / PubMedQA examples
+  give intervals of several points; results are not comparable to leaderboard numbers.
+  The PubMedQA subset is not the official 500-question test split.
+* **Generative JSON output.** A formatting error counts as a wrong answer, so EM/F1
+  mix reading ability and format compliance. `format_rate` is reported to separate them.
+* **Distractor noise.** For unanswerable questions, a same-article distractor may
+  happen to contain an answer; this is not checked and would penalise a correct answer.
+* **Derived supporting facts.** HotpotQA supporting sentences are inferred from quotes
+  by a coverage rule, which is not how the benchmark is normally evaluated.
+* **Possible pretraining exposure.** SQuAD, HotpotQA and PubMedQA are public and may
+  be in the pretraining data of Qwen2.5; this affects all rows equally but limits what
+  absolute numbers mean.
+* **Untuned hyperparameters.** Reward weights, shaping constants and the learning rate
+  were set a priori, not tuned; the ablations measure sensitivity to the weights only.
+* **Single task for training.** Training uses SQuAD v2 only; the transfer sets test
+  generalisation but the study does not cover long documents or retrieval errors.
+
+## Reproduce
+
+All commands, hardware requirements and durations are in [RUNBOOK.md](RUNBOOK.md).
+
+```bash
+pip install -r requirements-grounded.txt
+make grounded-test                                    # 162 tests, CPU, < 1 s
+python scripts/grounded/reward_hacking_report.py      # CPU, 10 s
+python scripts/grounded/evaluate.py --run_name zero_shot_qwen0.5b --model Qwen/Qwen2.5-0.5B-Instruct
+python scripts/grounded/train_grpo.py --config configs/grounded/grpo_qwen0.5b.yaml --seed 0
+python scripts/grounded/make_tables.py
 ```
 
-This will also install PyTorch `v2.6.0` and it is **very important** to use this version since the vLLM binaries are compiled for it. You can then install the remaining dependencies for your specific use case via `pip install -e .[LIST OF MODES]`. For most contributors, we recommend:
+The full plan (3 seeds, 6 ablations, 1.5B run) is about 30 GPU-hours on a 24 GB card
+(estimate, see the RUNBOOK); the 0.5B evaluation runs on a 16 GB laptop.
 
-```shell
-GIT_LFS_SKIP_SMUDGE=1 uv pip install -e ".[dev]"
-```
-
-Next, log into your Hugging Face and Weights and Biases accounts as follows:
-
-```shell
-huggingface-cli login
-wandb login
-```
-
-Finally, check whether your system has Git LFS installed so that you can load and push models/datasets to the Hugging Face Hub:
-
-```shell
-git-lfs --version
-```
-
-If it isn't installed, run:
-
-```shell
-sudo apt-get install git-lfs
-```
-
-## Training models
-
-> [!NOTE]
-> The training commands below are configured for a node of 8 x H100s (80GB). For different hardware and topologies, you may need to tune the batch size and number of gradient accumulation steps.
-
-We support training models with either DDP or DeepSpeed (ZeRO-2 and ZeRO-3). For example, to perform SFT on a dataset distilled from DeepSeek-R1 with reasoning traces such as [open-r1/Mixture-of-Thoughts](https://huggingface.co/datasets/open-r1/Mixture-of-Thoughts), run:
-
-```shell
-# Train via command line
-accelerate launch --config_file=recipes/accelerate_configs/zero3.yaml src/open_r1/sft.py \
-    --model_name_or_path open-r1/Qwen2.5-Math-7B-RoPE-300k \
-    --dataset_name open-r1/Mixture-of-Thoughts \
-    --dataset_config all \
-    --eos_token '<|im_end|>' \
-    --learning_rate 4.0e-5 \
-    --num_train_epochs 5 \
-    --max_seq_length 32768 \
-    --per_device_train_batch_size 2 \
-    --gradient_checkpointing \
-    --bf16 \
-    --use_liger_kernel \
-    --output_dir data/OpenR1-Distill-7B
-
-# Train via YAML config
-accelerate launch --config_file recipes/accelerate_configs/zero3.yaml src/open_r1/sft.py \
-    --config recipes/OpenR1-Distill-7B/sft/config_distill.yaml
-```
-
-Currently, the following tasks are supported:
-
-* Supervised Fine-Tuning `sft`
-* Group Relative Policy Optimization `grpo`
-
-> [!TIP]
-> If you scale up/down the number of GPUs, we recommend also scaling up the per-device batch size or number of gradient accumulation steps to keep the global batch size constant.
-
-By default, these scripts will push each model to your Hugging Face Hub username, i.e. `{username}/{model_name}-{task}`. You can override the parameters in each YAML config by appending them to the command as follows: 
-
-```shell
-# Change the base model to a smaller variant
-accelerate launch --config_file recipes/accelerate_configs/zero3.yaml src/open_r1/sft.py \
-    --config recipes/OpenR1-Distill-7B/sft/config_distill.yaml \
-    --model_name_or_path Qwen/Qwen3-0.6B-Base \
-    --hub_model_id OpenR1-Distill-0.6B \
-    --output_dir data/OpenR1-Distill-0.6B
-```
-
-If you also wish to override the Weights and Biases default settings, you can do so as follows:
-
-```shell
-accelerate launch --config_file recipes/accelerate_configs/zero3.yaml src/open_r1/sft.py \
-    --config recipes/OpenR1-Distill-7B/sft/config_distill.yaml
-    --wandb_entity huggingface --wandb_project open-r1 --run_name Qwen2.5-1.5B-GRPO
-```
-
-**🚨 WARNING 🚨**
-
-Most base models like `meta-llama/Llama-3.2-1B` do not have a chat template, so we set ChatML as the default during training. However, for Qwen base models like `Qwen/Qwen2.5-1.5B`, a chat template is pre-defined in the tokenizer, so the EOS token must be set accordingly, e.g.
-
-```diff
-# Align EOS token with chat template for Qwen base models
-accelerate launch --config_file=recipes/accelerate_configs/zero3.yaml src/open_r1/sft.py \
-    --model_name_or_path Qwen/Qwen2.5-1.5B \
-+   --eos_token '<|im_end|>'
-    --dataset_name open-r1/Mixture-of-Thoughts \
-    --dataset_config all \
-    --learning_rate 4.0e-5 \
-    --num_train_epochs 1 \
-    --max_seq_length 32768 \
-    --per_device_train_batch_size 16 \
-    --gradient_checkpointing \
-    --bf16 \
-    --use_liger_kernel \
-    --output_dir data/Qwen2.5-1.5B-Open-R1-Distill
-```
-
-If you wish to use a custom chat template (e.g. Llama or Gemma), then the chat template and associated EOS token must be provided:
-
-```diff
-# Align EOS token with custom chat template
-accelerate launch --config_file=recipes/accelerate_configs/zero3.yaml src/open_r1/sft.py \
-    --model_name_or_path meta-llama/Llama-3.2-1B \
-+   --chat_template "$(cat llama_chat_template.jinja)" \
-+   --eos_token '<|eot_id|>' \
-    --dataset_name open-r1/Mixture-of-Thoughts \
-    --dataset_config all \
-    --learning_rate 4.0e-5 \
-    --num_train_epochs 1 \
-    --max_seq_length 32768 \
-    --per_device_train_batch_size 16 \
-    --gradient_checkpointing \
-    --bf16 \
-    --use_liger_kernel \
-    --output_dir data/Llama-3.2-1B-Open-R1-Distill
-```
-
-### SFT distillation
-
-We provide a recipe to reproduce the reasoning capabilities of [deepseek-ai/DeepSeek-R1-Distill-Qwen-7B](https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B), starting from the same base model. To do so, run:
-
-```shell
-ACCELERATE_LOG_LEVEL=info accelerate launch --config_file recipes/accelerate_configs/zero3.yaml \
-    src/open_r1/sft.py \
-    --config recipes/OpenR1-Distill-7B/sft/config_distill.yaml
-```
-
-The result will be a model like [open-r1/OpenR1-Distill-7B](https://huggingface.co/open-r1/OpenR1-Distill-7B), with the following downstream performance:
-
-| Model                       | AIME 2024 | MATH-500 | GPQA Diamond | LiveCodeBench v5 |
-|-----------------------------|-----------|----------|--------------|------------------|
-| OpenR1-Distill-7B           | 52.7      | 89.0     | 52.8         | 39.4             |
-| DeepSeek-R1-Distill-Qwen-7B | 51.3      | 93.5     | 52.4         | 37.4             |
-
-You can adjust the YAML config to train on a different base model or dataset.
-
-### GRPO
-
-We use TRL's [vLLM backend](https://huggingface.co/docs/trl/speeding_up_training?vllm+examples=GRPO#vllm-for-fast-generation-in-online-methods) to scale training to large models across multiple nodes. For single-node training of smol models across 8 GPUs, use `vllm_mode="colocate"` to run vLLM in the same process as the training script:
-
-```shell
-ACCELERATE_LOG_LEVEL=info \
-    accelerate launch --config_file recipes/accelerate_configs/zero3.yaml \
-    src/open_r1/grpo.py --config recipes/DeepSeek-R1-Distill-Qwen-1.5B/grpo/config_demo.yaml \
-    --vllm_mode colocate
-```
-
-> [!WARNING]
-> The chat template used in the distilled DeepSeek models omits the contents of the reasoning block within the `<think>` and `</think>` tags. It also prefills the assistant response with `<think>` which interferes with the format reward function. To handle that, it is important to override the chat template as done in e.g.  [recipes/DeepSeek-R1-Distill-Qwen-1.5B/grpo/config_demo.yaml](./recipes/DeepSeek-R1-Distill-Qwen-1.5B/grpo/config_demo.yaml).
-
-For multi-node training on N+1 nodes, with 1 node running the vLLM server and N nodes running training, we provide an example Slurm script. For example, to run the above example on 1+1 nodes with data parallelism, run:
-
-```shell
-sbatch --nodes=2 slurm/train.slurm --model Qwen2.5-1.5B-Instruct --task grpo --config demo --accelerator zero2 --dp 8 --tp 1
-```
-
-See the [Launching jobs on a Slurm cluster](#launching-jobs-on-a-slurm-cluster) section for more details.
-
-#### GRPO dataset filtering
-
-We provide support to filter datasets by generating and computing pass rate on veriable tasks, see this [README](scripts/pass_rate_filtering/README.md)
-
-#### 👨‍💻 Training with a code interpreter
-
-We provide a `code` reward function for executing code generated by the policy during training. Currently, this reward function targets code contests like [Codeforces](https://codeforces.com), where solutions are executed against a set of test cases and the overall success rate is returned as the final reward. To ensure safe execution, we support multiple sandbox providers:
-
-1. [E2B](https://e2b.dev) - Fast, cloud-based sandboxes with focus on Python execution
-2. [Morph](https://cloud.morph.so/web/) - Cloud-based sandboxes with broader language support - Python/JS/C++/Rust
-
-To use the code reward function, first install the necessary dependencies:
-
-```shell
-uv pip install -e '.[code]'
-```
-
-##### E2B Provider
-
-To use E2B sandboxes, create a `.env` file and add your E2B API token:
+## Repository structure
 
 ```
-E2B_API_KEY="e2b_xxx"
+src/open_r1/grounded/      package of this fork (standard library only for rewards, data, metrics)
+  parsing.py               JSON extraction and typed validation of model outputs
+  rewards.py               reward suite and RewardSettings
+  data.py                  SQuAD v2 / HotpotQA / PubMedQA conversion and deterministic sub-sampling
+  prompts.py               system prompt, chunk formatting, reference responses
+  metrics.py               metrics, bootstrap intervals, paired bootstrap test
+  generation.py            batched greedy generation (transformers or local OpenAI-compatible endpoint)
+  training.py, config.py   helpers for the training scripts, YAML loading with overrides
+  policies.py, legacy_v0.py   question-independent policies and the first reward version (study only)
+  runinfo.py               provenance written with every result (git SHA, versions, hardware)
+scripts/grounded/          train_grpo.py, train_sft.py, evaluate.py, make_tables.py, compare.py,
+                           plot_training.py, reward_hacking_report.py
+configs/grounded/          one YAML per experiment (main runs, SFT baselines, ablations, evaluation)
+tests/grounded/            162 tests: parser fuzzing, rewards, reward shortcuts, data, metrics, configs
+results/                   committed raw results, per-example predictions and generated tables
+docs/upstream_README.md    README of huggingface/open-r1
+src/open_r1/*.py, recipes/, slurm/, scripts/*.py   upstream open-r1, unchanged
 ```
 
-##### Morph Provider
-
-To use Morph, first install the morphcloud package:
-
-```shell
-pip install morphcloud
-```
-
-Then add your Morph API token to the `.env` file:
-
-```
-MORPH_API_KEY="YOUR_MORPH_API_KEY"
-```
-
-To specify which provider to use, add the `provider_type` parameter in your configuration:
-
-```yaml
-# For E2B
-provider_type: e2b
-
-# For Morph
-provider_type: morph
-```
-
-##### Dataset Requirements
-
-Make sure your dataset contains a `verification_info` column with the following schema (adopted from PrimeIntellect's excellent [datasets](https://huggingface.co/collections/PrimeIntellect/synthetic-1-67a2c399cfdd6c9f7fae0c37) of verifiable problems):
-
-```python
-{
-    "language": "python",  # Morph supports more languages including C++, Java, etc.
-    "test_cases": [
-        {
-            "input": "4\n4\n0001\n1000\n0011\n0111\n3\n010\n101\n0\n2\n00000\n00001\n4\n01\n001\n0001\n00001\n",
-            "output": "1\n3 \n-1\n0\n\n2\n1 2 \n",
-            "type": "stdin_stdout",
-        }
-    ],
-}
-```
-
-For example, to train a smol model on Python problems, start the vLLM server:
-
-```shell
-CUDA_VISIBLE_DEVICES=0 trl vllm-serve --model Qwen/Qwen2.5-1.5B-Instruct
-```
-
-Then run training with:
-
-```shell
-CUDA_VISIBLE_DEVICES=1,2,3,4,5,6,7 ACCELERATE_LOG_LEVEL=info \
-    accelerate launch --config_file recipes/accelerate_configs/zero2.yaml --num_processes=7 \
-    src/open_r1/grpo.py --config recipes/Qwen2.5-1.5B-Instruct/grpo/config_demo_code.yaml
-```
-
-##### Using Router Services
-
-It is possible to be rate limited when too many scripts are executed on sandbox services. For both providers, we offer router scripts that can be launched on a CPU node:
-
-For E2B:
-```shell
-sbatch slurm/e2b_router.slurm
-```
-
-For Morph:
-```shell
-sbatch slurm/morph_router.slurm
-```
-
-Then add the router URL in your training YAML config:
-```yaml
-# For E2B
-e2b_router_url: 1.2.3.4:8000
-
-# For Morph
-morph_router_url: 1.2.3.4:8000
-```
-
-The port should match the one used when launching the router.
-All training jobs can share the same router IP which will ensure parallel executions are properly managed.
-
-#### Competitive Programming problems: IOI & CodeForces
-
-We provide `ioi_code_reward` and `cf_code_reward` reward functions for executing problems from [IOI](https://hf.co/datasets/open-r1/ioi) and [CodeForces](https://huggingface.co/datasets/open-r1/codeforces), respectively. You can use either [piston](https://github.com/engineer-man/piston) or Morph (currently IOI only) as your execution provider.
-
-##### Piston 
-
-To use Piston:
-1. Get piston workers running, see [slurm/piston/README.md](./slurm/piston/README.md)
-2. Set your environment variable `PISTON_ENDPOINTS` to `slurm` or to a list of piston worker endpoints
-
-For IOI:
-
-3. In your configuration, use `ioi_provider: "piston"`
-
-For CodeForces:
-
-3. Download the generated (hard) test cases:
-```
-# change PATH_TO_SAVE_TESTCASES. Increase --max-workers according to your machine's capacity
-huggingface-cli download open-r1/codeforces --repo-type=dataset --include='generated_tests/*.parquet' --max-workers=8 --local-dir PATH_TO_SAVE_TESTCASES 
-```
-4. Save the path in .env:
-```
-CF_TESTS_FOLDER=PATH_TO_SAVE_TESTCASES
-```
-
-##### Morph 
-
-Morph is a cloud-based solution that provides sandboxed environments for running code. To use it:
-1. Install the Morph client: `pip install morphcloud`
-2. Add your Morph API key to the `.env` file: `MORPH_API_KEY="your_key_here"`
-3. In your configuration, use `ioi_provider: "morph"`
-
-##### Example recipes
-For IOI:
-
-See the [example recipe](./recipes/Qwen2.5-1.5B-Instruct/grpo/config_demo_code_ioi.yaml) for how to use the IOI reward function:
-
-```shell
-ACCELERATE_LOG_LEVEL=info accelerate launch --config_file recipes/accelerate_configs/zero2.yaml \
-    --num_processes=7 src/open_r1/grpo.py \
-    --config recipes/Qwen2.5-1.5B-Instruct/grpo/config_demo_code_ioi.yaml
-```
-
-For CodeForces:
-
-```shell
-sbatch --job-name=cf-grpo --nodes=2 slurm/train.slurm --model Qwen2.5-Coder-7B-Instruct --task grpo --config codeforces --accelerator zero3 --dp 8 --tp 1
-```
-
-### Launching jobs on a Slurm cluster
-
-If you have access to a Slurm cluster, we provide a `slurm/train.slurm` script that will automatically queue training jobs for you. Here's how you can use it:
-
-```shell
-sbatch --job-name=open_r1 --nodes=1 slurm/train.slurm --model {model_name} --task {task} --config {config_suffix} --accelerator {accelerator}
-```
-
-Here `{model_name}` and `{task}` are defined as above, while `{config_suffix}` refers to the specific config and `{accelerator}` refers to the choice of 🤗 Accelerate config in `recipes/accelerate_configs`. If you wish to override the default config parameters, you can provide them by appending a space-separated string like `'--arg1=value1 --arg2=value2'`. Here's a concrete example to run SFT on 1 node of 8 GPUs:
-
-```shell
-sbatch --job-name=open_r1 --nodes=1 slurm/train.slurm --model OpenR1-Distill-7B --task sft --config distill --accelerator zero3
-```
-
-You can scale the number of nodes by increasing the `--nodes` flag.
-
-For GRPO, we use 1 node for the vLLM server and N nodes for training. For example, to run GRPO on 1+1 nodes with mixed data and tensor parallelism, run:
-
-```shell
-sbatch --job-name=open_r1 --nodes=2 slurm/train.slurm --model Qwen2.5-1.5B-Instruct --task grpo --config demo --accelerator zero2 --dp 4 --tp 2
-```
-
-> [!NOTE]
-> The configuration in `slurm/train.slurm` is optimised for the Hugging Face Compute Cluster and may require tweaking to be adapted to your own compute nodes.
-
-### Customising the dataset mixture
-
-To combine multiple datasets as a single training mixture, you can specify the `dataset_mixture` parameter in the YAML config file. Here's a template for how to do this:
-
-```yaml
-dataset_mixture:
-  datasets:                     # List of datasets to include in the mixture
-    - id: dataset_1             # Hub dataset ID
-      config: config_name_1     # Name of the dataset config
-      split: split_1            # Split to use from the dataset
-      columns:                  # Columns to keep
-        - column_1              
-        - column_2    
-      weight: 0.25              # Fraction of dataset to use
-    - id: dataset_2
-      config: config_name_2
-      split: split_2
-      columns:                  
-        - column_1              
-        - column_2   
-      weight: 0.5
-  seed: 42                      # Seed for shuffling the combined dataset
-  test_split_size: 0.1          # Fraction of mixture to use for a test split
-```
-
-## Evaluating models
-
-We use `lighteval` to evaluate models. For models which fit on a single GPU, run:
-
-```shell
-export VLLM_WORKER_MULTIPROC_METHOD=spawn # Required for vLLM
-MODEL=deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
-MODEL_ARGS="model_name=$MODEL,dtype=bfloat16,max_model_length=32768,gpu_memory_utilization=0.8,generation_parameters={max_new_tokens:32768,temperature:0.6,top_p:0.95}"
-OUTPUT_DIR=data/evals/$MODEL
-
-# AIME 2024
-TASK=aime24
-lighteval vllm $MODEL_ARGS "lighteval|$TASK|0|0" \
-    --use-chat-template \
-    --output-dir $OUTPUT_DIR
-
-# MATH-500
-TASK=math_500
-lighteval vllm $MODEL_ARGS "lighteval|$TASK|0|0" \
-    --use-chat-template \
-    --output-dir $OUTPUT_DIR
-
-# GPQA Diamond
-TASK=gpqa:diamond
-lighteval vllm $MODEL_ARGS "lighteval|$TASK|0|0" \
-    --use-chat-template \
-    --output-dir $OUTPUT_DIR
-
-# LiveCodeBench
-lighteval vllm $MODEL_ARGS "extended|lcb:codegeneration|0|0" \
-    --use-chat-template \
-    --output-dir $OUTPUT_DIR 
-```
-
-To increase throughput across multiple GPUs, use _data parallel_ as follows:
-
-```shell
-NUM_GPUS=8
-MODEL=deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
-MODEL_ARGS="model_name=$MODEL,dtype=bfloat16,data_parallel_size=$NUM_GPUS,max_model_length=32768,gpu_memory_utilization=0.8,generation_parameters={max_new_tokens:32768,temperature:0.6,top_p:0.95}"
-TASK=aime24
-OUTPUT_DIR=data/evals/$MODEL
-
-lighteval vllm $MODEL_ARGS "lighteval|$TASK|0|0" \
-    --use-chat-template \
-    --output-dir $OUTPUT_DIR
-```
-
-For large models which require sharding across GPUs, use _tensor parallel_ and run:
-
-```shell
-NUM_GPUS=8
-MODEL=deepseek-ai/DeepSeek-R1-Distill-Qwen-32B
-MODEL_ARGS="model_name=$MODEL,dtype=bfloat16,tensor_parallel_size=$NUM_GPUS,max_model_length=32768,gpu_memory_utilization=0.8,generation_parameters={max_new_tokens:32768,temperature:0.6,top_p:0.95}"
-TASK=aime24
-OUTPUT_DIR=data/evals/$MODEL
-
-export VLLM_WORKER_MULTIPROC_METHOD=spawn
-lighteval vllm $MODEL_ARGS "lighteval|$TASK|0|0" \
-    --use-chat-template \
-    --output-dir $OUTPUT_DIR
-```
-
-You can also launch an evaluation with `make evaluate`, specifying the model, task, and optionally the parallelism technique and number of GPUs.
-
-To evaluate on a single GPU:
-
-```shell
-make evaluate MODEL=deepseek-ai/DeepSeek-R1-Distill-Qwen-32B TASK=aime24
-```
-
-To use Data Parallelism:
-
-```shell
-make evaluate MODEL=deepseek-ai/DeepSeek-R1-Distill-Qwen-32B TASK=aime24 PARALLEL=data NUM_GPUS=8
-```
-
-To use Tensor Parallelism:
-
-```shell
-make evaluate MODEL=deepseek-ai/DeepSeek-R1-Distill-Qwen-32B TASK=aime24 PARALLEL=tensor NUM_GPUS=8
-```
-
-## Reproducing Deepseek's evaluation results
-
-The DeepSeek-R1 paper uses sampling with 4-64 responses per query to estimate `pass@1` accuracy, but does not specify the specific number of responses per benchmark. In the tables below, we estimate `pass@1` accuracy with the following number of responses per query:
-
-|   Benchmark   | Number of responses per query |
-|:-------------:|:-----------------------------:|
-|   AIME 2024   |              64               |
-|   MATH-500    |               4               |
-| GPQA Diamond  |               8               |
-| LiveCodeBench |              16               |
-
-
-Note that for benchmarks like AIME24, it is important to sample many responses as there are only 30 problems and this can introduce high variance across repeated runs. The choice of how many responses to sample per prompt likely explains the small differences between our evaluation results and those reported by DeepSeek.
-
-### AIME 2024
-
-We are able to reproduce Deepseek's reported results on the AIME 2024 benchmark within ~1-3 standard deviations:
-
-| Model                         | AIME 2024 (🤗 LightEval) | AIME 2024 (DeepSeek Reported) |
-|:------------------------------|:------------------------:|:-----------------------------:|
-| DeepSeek-R1-Distill-Qwen-1.5B |           30.7           |             28.9              |
-| DeepSeek-R1-Distill-Qwen-7B   |           50.8           |             55.5              |
-| DeepSeek-R1-Distill-Qwen-14B  |           65.9           |             69.7              |
-| DeepSeek-R1-Distill-Qwen-32B  |           69.7           |             72.6              |
-| DeepSeek-R1-Distill-Llama-8B  |           43.9           |             41.7              |
-| DeepSeek-R1-Distill-Llama-70B |           63.0           |             70.0              |
-
-To reproduce these results use the following command:
-
-```shell
-NUM_GPUS=1 # Set to 8 for 32B and 70B models
-MODEL=deepseek-ai/{model_name}
-MODEL_ARGS="model_name=$MODEL,dtype=bfloat16,max_model_length=32768,gpu_memory_utilization=0.8,data_parallel_size=$NUM_GPUS,generation_parameters={max_new_tokens:32768,temperature:0.6,top_p:0.95}"
-OUTPUT_DIR=data/evals/$MODEL
-
-lighteval vllm $MODEL_ARGS "lighteval|aime24|0|0" \
-    --use-chat-template \
-    --output-dir $OUTPUT_DIR
-```
-
-Alternatively, you can launch Slurm jobs as follows:
-
-```shell
-python scripts/run_benchmarks.py --model-id {model_id}  --benchmarks aime24
-```
-
-### MATH-500
-
-We are able to reproduce Deepseek's reported results on the MATH-500 benchmark within ~1-3 standard deviations:
-
-| Model                         | MATH-500 (🤗 LightEval) | MATH-500 (DeepSeek Reported) |
-|:------------------------------|:-----------------------:|:----------------------------:|
-| DeepSeek-R1-Distill-Qwen-1.5B |          83.1           |             83.9             |
-| DeepSeek-R1-Distill-Qwen-7B   |          94.5           |             92.8             |
-| DeepSeek-R1-Distill-Qwen-14B  |          94.1           |             93.9             |
-| DeepSeek-R1-Distill-Qwen-32B  |          95.6           |             94.3             |
-| DeepSeek-R1-Distill-Llama-8B  |          88.6           |             89.1             |
-| DeepSeek-R1-Distill-Llama-70B |          95.1           |             94.5             |
-
-To reproduce these results use the following command:
-
-```shell
-export VLLM_WORKER_MULTIPROC_METHOD=spawn
-NUM_GPUS=1 # Set to 8 for 32B and 70B models
-MODEL=deepseek-ai/{model_name}
-MODEL_ARGS="model_name=$MODEL,dtype=bfloat16,max_model_length=32768,gpu_memory_utilization=0.8,data_parallel_size=$NUM_GPUS,generation_parameters={max_new_tokens:32768,temperature:0.6,top_p:0.95}"
-OUTPUT_DIR=data/evals/$MODEL
-
-lighteval vllm $MODEL_ARGS "lighteval|math_500|0|0" \
-    --use-chat-template \
-    --output-dir $OUTPUT_DIR
-```
-
-Alternatively, you can launch Slurm jobs as follows:
-
-```shell
-python scripts/run_benchmarks.py --model-id {model_id}  --benchmarks math_500
-```
-
-### GPQA Diamond
-
-We are able to reproduce Deepseek's reported results on the GPQA Diamond benchmark within ~1-3 standard deviations:
-
-| Model                         | GPQA Diamond (🤗 LightEval) | GPQA Diamond (DeepSeek Reported) |
-|:------------------------------|:---------------------------:|:--------------------------------:|
-| DeepSeek-R1-Distill-Qwen-1.5B |            35.8             |               33.8               |
-| DeepSeek-R1-Distill-Qwen-7B   |            50.5             |               49.1               |
-| DeepSeek-R1-Distill-Qwen-14B  |            61.5             |               59.1               |
-| DeepSeek-R1-Distill-Qwen-32B  |            63.1             |               62.1               |
-| DeepSeek-R1-Distill-Llama-8B  |            46.7             |               49.0               |
-| DeepSeek-R1-Distill-Llama-70B |            67.4             |               65.2               |
-
-To reproduce these results use the following command:
-
-```shell
-export VLLM_WORKER_MULTIPROC_METHOD=spawn
-NUM_GPUS=1 # Set to 8 for 32B and 70B models
-MODEL=deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
-MODEL_ARGS="model_name=$MODEL,dtype=bfloat16,max_model_length=32768,gpu_memory_utilization=0.8,generation_parameters={max_new_tokens:32768,temperature:0.6,top_p:0.95}"
-OUTPUT_DIR=data/evals/$MODEL
-
-lighteval vllm $MODEL_ARGS "lighteval|gpqa:diamond|0|0" \
-    --use-chat-template \
-    --output-dir $OUTPUT_DIR
-```
-
-```shell
-python scripts/run_benchmarks.py --model-id {model_id}  --benchmarks gpqa
-```
-
-### LiveCodeBench
-
-We are able to reproduce Deepseek's reported results on the LiveCodeBench code generation benchmark within ~1-3 standard deviations:
-
-| Model                         | LiveCodeBench (🤗 LightEval) | LiveCodeBench (DeepSeek Reported) |
-|:------------------------------|:----------------------------:|:---------------------------------:|
-| DeepSeek-R1-Distill-Qwen-1.5B |             16.1             |               16.9                |
-| DeepSeek-R1-Distill-Qwen-7B   |             37.4             |               37.6                |
-| DeepSeek-R1-Distill-Qwen-14B  |             51.3             |               53.1                |
-| DeepSeek-R1-Distill-Qwen-32B  |             56.0             |               57.2                |
-| DeepSeek-R1-Distill-Llama-8B  |             37.4             |               39.6                |
-| DeepSeek-R1-Distill-Llama-70B |             55.9             |               57.5                |
-
-To reproduce these results use the following command:
-
-```shell
-NUM_GPUS=1 # Set to 8 for 32B and 70B models, or data_parallel_size=8 with the smaller models for speed
-MODEL=deepseek-ai/{model_name}
-MODEL_ARGS="model_name=$MODEL,dtype=bfloat16,max_model_length=32768,gpu_memory_utilization=0.8,data_parallel_size=$NUM_GPUS,generation_parameters={max_new_tokens:32768,temperature:0.6,top_p:0.95}"
-OUTPUT_DIR=data/evals/$MODEL
-
-lighteval vllm $MODEL_ARGS "extended|lcb:codegeneration|0|0" \
-    --use-chat-template \
-    --output-dir $OUTPUT_DIR
-```
-
-```shell
-python scripts/run_benchmarks.py --model-id {model_id}  --benchmarks lcb
-```
-
-## Data generation
-
-### Generate data from a smol distilled R1 model
-
-The following example can be run in 1xH100. 
-First install the following dependencies:
-
-```shell
-uv pip install "distilabel[vllm]>=1.5.2"
-```
-
-Now save the following snippet into a file named `pipeline.py` and run it with `python pipeline.py`. It will generate 4 outputs for each of the 10 examples (change the username for the repository to your org/user name):
-
-```python
-from datasets import load_dataset
-from distilabel.models import vLLM
-from distilabel.pipeline import Pipeline
-from distilabel.steps.tasks import TextGeneration
-
-
-prompt_template = """\
-You will be given a problem. Please reason step by step, and put your final answer within \boxed{}:
-{{ instruction }}"""
-
-dataset = load_dataset("AI-MO/NuminaMath-TIR", split="train").select(range(10))
-
-model_id = "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"  # Exchange with another smol distilled r1
-
-with Pipeline(
-    name="distill-qwen-7b-r1",
-    description="A pipeline to generate data from a distilled r1 model",
-) as pipeline:
-
-    llm = vLLM(
-        model=model_id,
-        tokenizer=model_id,
-        extra_kwargs={
-            "tensor_parallel_size": 1,
-            "max_model_len": 8192,
-        },
-        generation_kwargs={
-            "temperature": 0.6,
-            "max_new_tokens": 8192,
-        },
-    )
-    prompt_column = "problem"
-    text_generation = TextGeneration(
-        llm=llm, 
-        template=prompt_template,
-        num_generations=4,
-        input_mappings={"instruction": prompt_column} if prompt_column is not None else {}
-    )
-
-
-if __name__ == "__main__":
-    distiset = pipeline.run(dataset=dataset)
-    distiset.push_to_hub(repo_id="username/numina-deepseek-r1-qwen-7b")
-```
-
-Take a look at the sample dataset at [HuggingFaceH4/numina-deepseek-r1-qwen-7b](https://huggingface.co/datasets/HuggingFaceH4/numina-deepseek-r1-qwen-7b).
-
-
-### Generate data from DeepSeek-R1
-
-To run the bigger DeepSeek-R1, we used 2 nodes, each with 8×H100 GPUs using the slurm file present in this repo at `slurm/generate.slurm`. First, install the dependencies:
-
-(for now we need to install the vllm dev wheel that [fixes the R1 cuda graph capture](https://github.com/vllm-project/vllm/commits/221d388cc5a836fa189305785ed7e887cea8b510/csrc/moe/moe_align_sum_kernels.cu))
-```shell
-pip install https://wheels.vllm.ai/221d388cc5a836fa189305785ed7e887cea8b510/vllm-1.0.0.dev-cp38-abi3-manylinux1_x86_64.whl --extra-index-url https://download.pytorch.org/whl/cu121
-
-uv pip install "distilabel[vllm,ray,openai]>=1.5.2"
-```
-
-And then run the following command:
-
-```shell
-sbatch slurm/generate.slurm \
-    --hf-dataset AI-MO/NuminaMath-TIR \
-    --temperature 0.6 \
-    --prompt-column problem \
-    --model deepseek-ai/DeepSeek-R1 \
-    --hf-output-dataset username/r1-dataset
-```
-
-> [!NOTE]  
-> While the job is running, you can setup an SSH tunnel through the cluster login node to access the Ray dashboard from your computer running `ssh -L 8265:ray_ip_head_node:8265 <login_node>`, then browsing `http://localhost:8265`
-
-
-### Data decontamination
-
-Following [s1: Simple test-time scaling](https://huggingface.co/papers/2501.19393) the data can be decontaminated using the script at: [scripts/decontaminate.py](./scripts/decontaminate.py), which decontaminates a dataset using 8-grams and deduplicate the data. Sample run:
-
-```shell
-python scripts/decontaminate.py \
-    --dataset "open-r1/verifiable-coding-problems-python" \
-    --problem_column problem \
-    --cleanup
-```
-
-It will decontaminate against the benchmark datasets, and remove the contaminated samples afterwards. If no argument `--new_dataset_name` is provided, the same dataset will be reused, adding a `_decontaminated`. It runs against the prompt, which for this dataset is the column `problem`, but a different one can be provided.
-
-Arguments for the script:
-
-```shell
-usage: decontaminate.py [-h] --dataset DATASET [--split SPLIT] [--ngram_size NGRAM_SIZE] [--problem_column PROBLEM_COLUMN] [--cleanup] [--new_dataset_name NEW_DATASET_NAME]
-
-options:
-  -h, --help            show this help message and exit
-  --dataset DATASET     Name of the dataset to check for contamination.
-  --split SPLIT         Split to check for contamination, defaults to `train`.
-  --ngram_size NGRAM_SIZE
-                        Size of n-grams to build, defaults to 8.
-  --problem_column PROBLEM_COLUMN
-                        Name of the column containing the problem (prompt).
-  --cleanup           Whether to remove the contaminated rows before pushing the dataset.
-  --new_dataset_name NEW_DATASET_NAME
-                        New name for the dataset. If not provided, will reuse the name and add a `_decontaminated` to the name.
-```
-
-## Contributing
-
-Contributions are welcome. Please refer to https://github.com/huggingface/open-r1/issues/23.
-
-## Acknowledgements
-
-This project is built with the collective efforts of many groups and individuals in the open AI community. We are especially grateful to the vLLM and SGLang teams for creating high-performance tooling to scale the rollouts of GRPO. We also thank the teams at [OpenThoughts](https://www.open-thoughts.ai), [Prime Intellect](https://www.primeintellect.ai), and [General Reasoning](https://gr.inc) for creating and sharing high-quality datasets for reasoning.
-
-## Citation
-
-If you find this project is useful in your own work, please consider citing as follows:
-
-```
-@misc{openr1,
-    title = {Open R1: A fully open reproduction of DeepSeek-R1},
-    url = {https://github.com/huggingface/open-r1},
-    author = {{Hugging Face}},
-    month = {January},
-    year = {2025}
-}
-```
+Tests and lint: `make grounded-test`, `make grounded-quality`; CI runs both on every
+push ([.github/workflows/ci.yml](.github/workflows/ci.yml)).
+
+## License
+
+Apache-2.0, inherited from huggingface/open-r1 (see [LICENSE](LICENSE)).
+
+## References
+
+* Shao et al. (2024). *DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models* (introduces GRPO). [arXiv:2402.03300](https://arxiv.org/abs/2402.03300)
+* Guo et al. (2025). *DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning*. [arXiv:2501.12948](https://arxiv.org/abs/2501.12948)
+* Liu et al. (2025). *Understanding R1-Zero-Like Training: A Critical Perspective* (Dr. GRPO). [arXiv:2503.20783](https://arxiv.org/abs/2503.20783) · [code](https://github.com/sail-sg/understand-r1-zero)
+* Yu et al. (2025). *DAPO: An Open-Source LLM Reinforcement Learning System at Scale*. [arXiv:2503.14476](https://arxiv.org/abs/2503.14476)
+* Sim et al. (2025). *Lessons from Training Grounded LLMs with Verifiable Rewards* (Ground-GRPO). [arXiv:2506.15522](https://arxiv.org/abs/2506.15522)
+* Song et al. (2025). *Measuring and Enhancing Trustworthiness of LLMs in RAG through Grounded Attributions and Learning to Refuse* (Trust-Align), ICLR 2025. [arXiv:2409.11242](https://arxiv.org/abs/2409.11242) · [code](https://github.com/declare-lab/trust-align)
+* Gao et al. (2023). *Enabling Large Language Models to Generate Text with Citations* (ALCE), EMNLP 2023. [arXiv:2305.14627](https://arxiv.org/abs/2305.14627)
+* Rajpurkar et al. (2018). *Know What You Don't Know: Unanswerable Questions for SQuAD*, ACL 2018. [arXiv:1806.03822](https://arxiv.org/abs/1806.03822)
+* Yang et al. (2018). *HotpotQA: A Dataset for Diverse, Explainable Multi-hop Question Answering*, EMNLP 2018. [arXiv:1809.09600](https://arxiv.org/abs/1809.09600)
+* Jin et al. (2019). *PubMedQA: A Dataset for Biomedical Research Question Answering*, EMNLP 2019. [arXiv:1909.06146](https://arxiv.org/abs/1909.06146)
+* Qwen Team (2024). *Qwen2.5 Technical Report*. [arXiv:2412.15115](https://arxiv.org/abs/2412.15115)
+* TRL `GRPOTrainer` documentation (version 0.29.1). [huggingface.co/docs/trl/grpo_trainer](https://huggingface.co/docs/trl/main/en/grpo_trainer)
+* huggingface/open-r1. [github.com/huggingface/open-r1](https://github.com/huggingface/open-r1)
