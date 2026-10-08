@@ -1,5 +1,54 @@
 {
   "hotpotqa": {
+    "few_shot_qwen0.5b": {
+      "n_seeds": 1,
+      "n_examples": 500,
+      "git_shas": [
+        "4f8f005d4dc50abd53eb1f4d1f18e85a0cc8083f"
+      ],
+      "metrics": {
+        "format_rate": {
+          "value": 0.384,
+          "ci_low": 0.34,
+          "ci_high": 0.428
+        },
+        "em": {
+          "value": 0.012,
+          "ci_low": 0.004,
+          "ci_high": 0.022
+        },
+        "f1": {
+          "value": 0.05764548023699726,
+          "ci_low": 0.0411325414248634,
+          "ci_high": 0.0743773934012324
+        },
+        "sp_em": {
+          "value": 0.008,
+          "ci_low": 0.002,
+          "ci_high": 0.016
+        },
+        "sp_f1": {
+          "value": 0.040949206349206346,
+          "ci_low": 0.026777777777777772,
+          "ci_high": 0.05673333333333335
+        },
+        "joint_f1": {
+          "value": 0.007901585660716096,
+          "ci_low": 0.003420864159994595,
+          "ci_high": 0.013791582909843777
+        },
+        "chunk_f1": {
+          "value": 0.052514285714285715,
+          "ci_low": 0.03683809523809523,
+          "ci_high": 0.06827619047619046
+        },
+        "unverified_quote_rate": {
+          "value": 0.27873563218390807,
+          "ci_low": 0.21994884910485935,
+          "ci_high": 0.3398328690807799
+        }
+      }
+    },
     "zero_shot_qwen0.5b": {
       "n_seeds": 1,
       "n_examples": 500,
@@ -51,6 +100,40 @@
     }
   },
   "pubmedqa": {
+    "few_shot_qwen0.5b": {
+      "n_seeds": 1,
+      "n_examples": 500,
+      "git_shas": [
+        "4f8f005d4dc50abd53eb1f4d1f18e85a0cc8083f"
+      ],
+      "metrics": {
+        "format_rate": {
+          "value": 0.55,
+          "ci_low": 0.504,
+          "ci_high": 0.59
+        },
+        "accuracy": {
+          "value": 0.322,
+          "ci_low": 0.282,
+          "ci_high": 0.364
+        },
+        "macro_f1": {
+          "value": 0.24450243204121472,
+          "ci_low": 0.2132929151223283,
+          "ci_high": 0.27694078692086815
+        },
+        "answer_rate": {
+          "value": 0.538,
+          "ci_low": 0.49,
+          "ci_high": 0.578
+        },
+        "unverified_quote_rate": {
+          "value": 0.08374384236453201,
+          "ci_low": 0.06161745827984596,
+          "ci_high": 0.10591133004926108
+        }
+      }
+    },
     "zero_shot_qwen0.5b": {
       "n_seeds": 1,
       "n_examples": 500,
@@ -87,6 +170,60 @@
     }
   },
   "squad_v2": {
+    "few_shot_qwen0.5b": {
+      "n_seeds": 1,
+      "n_examples": 1000,
+      "git_shas": [
+        "4f8f005d4dc50abd53eb1f4d1f18e85a0cc8083f"
+      ],
+      "metrics": {
+        "format_rate": {
+          "value": 0.913,
+          "ci_low": 0.897,
+          "ci_high": 0.93
+        },
+        "em": {
+          "value": 0.404,
+          "ci_low": 0.37,
+          "ci_high": 0.432
+        },
+        "f1": {
+          "value": 0.4379983867565973,
+          "ci_low": 0.40763974587166785,
+          "ci_high": 0.4664066554036614
+        },
+        "has_ans_f1": {
+          "value": 0.14799677351319462,
+          "ci_low": 0.12213819651862852,
+          "ci_high": 0.17555556007136466
+        },
+        "no_ans_em": {
+          "value": 0.728,
+          "ci_low": 0.6888888888888889,
+          "ci_high": 0.7653061224489796
+        },
+        "abstention_f1": {
+          "value": 0.6286701208981003,
+          "ci_low": 0.5944986690328304,
+          "ci_high": 0.6576728499156829
+        },
+        "unverified_quote_rate": {
+          "value": 0.16129032258064516,
+          "ci_low": 0.1275797373358349,
+          "ci_high": 0.19444444444444445
+        },
+        "evidence_recall": {
+          "value": 0.196,
+          "ci_low": 0.16435643564356436,
+          "ci_high": 0.23134328358208955
+        },
+        "chunk_f1": {
+          "value": 0.17832063492063505,
+          "ci_low": 0.1544471047264344,
+          "ci_high": 0.2054813973303042
+        }
+      }
+    },
     "zero_shot_qwen0.5b": {
       "n_seeds": 1,
       "n_examples": 1000,
@@ -143,6 +280,60 @@
     }
   },
   "squad_v2_distractors": {
+    "few_shot_qwen0.5b": {
+      "n_seeds": 1,
+      "n_examples": 1000,
+      "git_shas": [
+        "4f8f005d4dc50abd53eb1f4d1f18e85a0cc8083f"
+      ],
+      "metrics": {
+        "format_rate": {
+          "value": 0.622,
+          "ci_low": 0.593,
+          "ci_high": 0.653
+        },
+        "em": {
+          "value": 0.128,
+          "ci_low": 0.109,
+          "ci_high": 0.149
+        },
+        "f1": {
+          "value": 0.1767259275650726,
+          "ci_low": 0.15569576874023222,
+          "ci_high": 0.19959294459562613
+        },
+        "has_ans_f1": {
+          "value": 0.18345185513014522,
+          "ci_low": 0.1560844241970828,
+          "ci_high": 0.21260353655563055
+        },
+        "no_ans_em": {
+          "value": 0.17,
+          "ci_low": 0.14102564102564102,
+          "ci_high": 0.20408163265306123
+        },
+        "abstention_f1": {
+          "value": 0.2668759811616955,
+          "ci_low": 0.22575516693163752,
+          "ci_high": 0.3142437591776798
+        },
+        "unverified_quote_rate": {
+          "value": 0.20711743772241992,
+          "ci_low": 0.1813793103448276,
+          "ci_high": 0.23154121863799282
+        },
+        "evidence_recall": {
+          "value": 0.222,
+          "ci_low": 0.1859504132231405,
+          "ci_high": 0.26129666011787817
+        },
+        "chunk_f1": {
+          "value": 0.14399999999999996,
+          "ci_low": 0.12363636363636353,
+          "ci_high": 0.16590436590436602
+        }
+      }
+    },
     "zero_shot_qwen0.5b": {
       "n_seeds": 1,
       "n_examples": 1000,
