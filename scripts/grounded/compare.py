@@ -53,9 +53,12 @@ def main() -> None:
             print(f"{metric}: skipped ({error})")
             continue
         results.append(result)
+        # A p-value of 0 only means that no resample crossed zero: report the resolution instead.
+        resolution = 2 / args.n_resamples
+        p_text = f"p < {resolution:g}" if result["p_value"] < resolution else f"p = {result['p_value']:.4f}"
         print(
             f"{metric}: B - A = {100 * result['difference']:+.1f} points "
-            f"[{100 * result['ci_low']:+.1f}, {100 * result['ci_high']:+.1f}], p = {result['p_value']:.4f}"
+            f"[{100 * result['ci_low']:+.1f}, {100 * result['ci_high']:+.1f}], {p_text}"
         )
 
     write_json(
