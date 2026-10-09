@@ -1,0 +1,194 @@
+{
+  "run_name": "few_shot_qwen0.5b",
+  "dataset": "pubmedqa",
+  "dataset_spec": {
+    "dataset": "pubmedqa",
+    "split": "train",
+    "n_examples": 500,
+    "subset_seed": 0
+  },
+  "is_smoke_test": false,
+  "few_shot": true,
+  "n_demonstrations": 3,
+  "generator": {
+    "backend": "hf",
+    "model": "Qwen/Qwen2.5-0.5B-Instruct",
+    "adapter": null,
+    "dtype": "torch.float16",
+    "device": "mps",
+    "batch_size": 2,
+    "max_new_tokens": 256,
+    "decoding": "greedy"
+  },
+  "metrics": {
+    "format_rate": {
+      "value": 0.55,
+      "ci_low": 0.504,
+      "ci_high": 0.59
+    },
+    "em": {
+      "value": 0.322,
+      "ci_low": 0.282,
+      "ci_high": 0.364
+    },
+    "f1": {
+      "value": 0.322,
+      "ci_low": 0.282,
+      "ci_high": 0.364
+    },
+    "has_ans_em": {
+      "value": 0.322,
+      "ci_low": 0.282,
+      "ci_high": 0.364
+    },
+    "has_ans_f1": {
+      "value": 0.322,
+      "ci_low": 0.282,
+      "ci_high": 0.364
+    },
+    "no_ans_em": {
+      "value": null,
+      "ci_low": null,
+      "ci_high": null
+    },
+    "answer_rate": {
+      "value": 0.538,
+      "ci_low": 0.49,
+      "ci_high": 0.578
+    },
+    "unverified_quote_rate": {
+      "value": 0.08374384236453201,
+      "ci_low": 0.06161745827984596,
+      "ci_high": 0.10591133004926108
+    },
+    "answers_with_unverified_quote": {
+      "value": 0.19330855018587362,
+      "ci_low": 0.14652014652014653,
+      "ci_high": 0.23754789272030652
+    },
+    "evidence_recall": {
+      "value": 0.04,
+      "ci_low": 0.024,
+      "ci_high": 0.058
+    },
+    "chunk_precision": {
+      "value": 0.42366666666666664,
+      "ci_low": 0.3835,
+      "ci_high": 0.4597999999999999
+    },
+    "chunk_recall": {
+      "value": 0.40987619047619034,
+      "ci_low": 0.36963809523809515,
+      "ci_high": 0.4468999999999998
+    },
+    "chunk_f1": {
+      "value": 0.4131074481074483,
+      "ci_low": 0.3736482295482297,
+      "ci_high": 0.44843809523809547
+    },
+    "reward_fraction": {
+      "value": 0.36507226193894854,
+      "ci_low": 0.3314908130713392,
+      "ci_high": 0.397269411814988
+    },
+    "accuracy": {
+      "value": 0.322,
+      "ci_low": 0.282,
+      "ci_high": 0.364
+    },
+    "macro_f1": {
+      "value": 0.24450243204121472,
+      "ci_low": 0.2132929151223283,
+      "ci_high": 0.27694078692086815
+    }
+  },
+  "confidence_interval": "95% percentile bootstrap over examples",
+  "bootstrap_resamples": 1000,
+  "generation_seconds": 1601.2,
+  "seconds_per_example": 3.202,
+  "config": {
+    "seed": 0,
+    "bootstrap_resamples": 1000,
+    "datasets": {
+      "squad_v2_distractors": {
+        "dataset": "squad_v2",
+        "split": "validation",
+        "n_examples": 1000,
+        "answerable_fraction": 0.5,
+        "n_distractors": 3
+      },
+      "squad_v2": {
+        "dataset": "squad_v2",
+        "split": "validation",
+        "n_examples": 1000,
+        "answerable_fraction": 0.5,
+        "n_distractors": 0
+      },
+      "hotpotqa": {
+        "dataset": "hotpotqa",
+        "split": "validation",
+        "n_examples": 500
+      },
+      "pubmedqa": {
+        "dataset": "pubmedqa",
+        "split": "train",
+        "n_examples": 500
+      }
+    },
+    "generation": {
+      "max_new_tokens": 256,
+      "batch_size": 2,
+      "dtype": "auto"
+    },
+    "few_shot": {
+      "n_answerable": 2,
+      "n_unanswerable": 1,
+      "n_distractors": 1,
+      "max_context_words": 120,
+      "seed": 0
+    },
+    "rewards": {
+      "weights": {
+        "format": 0.5,
+        "answer_correctness": 2.0,
+        "quote_grounding": 1.5,
+        "chunk_routing": 1.0,
+        "answer_faithfulness": 0.5
+      },
+      "settings": {
+        "quote_min_words": 3,
+        "quote_full_credit_words": 50,
+        "quote_zero_credit_words": 100,
+        "max_quotes": 3,
+        "max_extra_chars": 0,
+        "answer_copy_ratio": 0.8,
+        "answer_copy_cap": 0.5
+      }
+    },
+    "config_path": "configs/grounded/eval.yaml"
+  },
+  "environment": {
+    "date_utc": "2026-10-09T08:48:31+00:00",
+    "git_sha": "4f8f005d4dc50abd53eb1f4d1f18e85a0cc8083f",
+    "git_dirty": false,
+    "python": "3.11.15",
+    "packages": {
+      "torch": "2.14.1",
+      "transformers": "5.18.0",
+      "trl": "0.29.1",
+      "peft": "0.21.2",
+      "datasets": "5.0.1",
+      "accelerate": "1.15.0",
+      "vllm": null,
+      "openai": null
+    },
+    "hardware": {
+      "platform": "macOS-15.6.1-arm64-arm-64bit",
+      "machine": "arm64",
+      "cpu_count": 10,
+      "ram_gb": 17.2,
+      "accelerator": "mps"
+    },
+    "command": "scripts/grounded/evaluate.py --run_name few_shot_qwen0.5b --model Qwen/Qwen2.5-0.5B-Instruct --few_shot --datasets hotpotqa pubmedqa --set generation.batch_size=2"
+  }
+}
