@@ -12,7 +12,7 @@ been run; its rows in the README read `TBD (run pending)`.
 ```bash
 python -m venv .venv && source .venv/bin/activate      # Python >= 3.10
 pip install -r requirements-grounded.txt
-make grounded-test                                      # 162 tests, < 1 s, CPU only
+make grounded-test                                      # 163 tests, < 1 s, CPU only
 ```
 
 `requirements-grounded.txt` pins the versions used for development (TRL 0.29.1,
@@ -112,7 +112,15 @@ done
 ```
 
 Adapters are written to `data/` (not committed); logs and provenance to
-`results/sft/sft_qwen0.5b/seed<k>/`.
+`results/sft/sft_qwen0.5b/seed<k>/`. A checkpoint is saved every 25 steps; an
+interrupted run continues with `--resume` (same command and overrides).
+
+On a 16 GB Apple Silicon machine the configured batch of 8 sequences does not fit
+(MPS out of memory on the first step). Use the same effective batch of 16 as 2 x 8:
+
+```bash
+--set model.dtype=float32 sft.bf16=false sft.per_device_train_batch_size=2 sft.gradient_accumulation_steps=8
+```
 
 ## 4. GRPO
 
