@@ -32,5 +32,6 @@ sft:                        # passed to trl.SFTConfig (TRL 0.29.1)
   warmup_steps: 10
   bf16: true
   logging_steps: 5
-  save_strategy: "no"
+  save_steps: 25            # checkpoints allow --resume after an interruption
+  save_total_limit: 1
   report_to: none

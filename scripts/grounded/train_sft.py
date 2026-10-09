@@ -8,9 +8,11 @@ No model is involved in building the targets (see `open_r1.grounded.data`).
 
 Outputs
 -------
-data/<run_name>/seed<seed>/                   LoRA adapter (not committed)
+data/<run_name>/seed<seed>/                   LoRA adapter and trainer checkpoints (not committed)
 results/sft/<run_name>/seed<seed>/run.json    config, seed, environment, runtime, final training metrics
 results/sft/<run_name>/seed<seed>/train_log.jsonl
+
+An interrupted run resumes from its last checkpoint with --resume.
 """
 
 from __future__ import annotations
@@ -31,6 +33,7 @@ from open_r1.grounded.training import (  # noqa: E402
     lora_config,
     make_jsonl_logger,
     sft_rows,
+    trim_log,
 )
 
 
@@ -38,12 +41,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--config", required=True)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--resume", action="store_true", help="Resume from the last checkpoint in the output dir.")
     parser.add_argument("--checkpoint_root", default="data")
     parser.add_argument("--results_root", default="results/sft")
     parser.add_argument("--set", nargs="*", default=[], metavar="KEY=VALUE", help="Config overrides.")
     args = parser.parse_args()
 
     from datasets import Dataset
+    from transformers.trainer_utils import get_last_checkpoint
     from trl import SFTConfig, SFTTrainer
 
     config = load_config(args.config, args.set)
@@ -56,7 +61,7 @@ def main() -> None:
     model, tokenizer = load_model_and_tokenizer(config["model"])
 
     log_path = results_dir / "train_log.jsonl"
-    if log_path.exists():
+    if not args.resume and log_path.exists():
         log_path.unlink()
     trainer = SFTTrainer(
         model=model,
@@ -67,8 +72,10 @@ def main() -> None:
         callbacks=[make_jsonl_logger(log_path)],
     )
 
+    checkpoint = get_last_checkpoint(str(output_dir)) if args.resume and output_dir.is_dir() else None
+    trim_log(log_path, checkpoint)
     start = time.time()
-    result = trainer.train()
+    result = trainer.train(resume_from_checkpoint=checkpoint)
     runtime = time.time() - start
 
     trainer.save_model(str(output_dir))
@@ -83,6 +90,7 @@ def main() -> None:
             "n_training_examples": len(records),
             "n_answerable": sum(r["is_answerable"] for r in records),
             "parameters": count_parameters(trainer.model),
+            "resumed_from": checkpoint,
             "train_runtime_seconds": round(runtime, 1),
             "global_step": trainer.state.global_step,
             "train_metrics": result.metrics,

@@ -95,3 +95,14 @@ def test_overrides():
     assert config == {"grpo": {"max_steps": 3}, "model": {"dtype": "float32"}, "a": {"b": None}}
     with pytest.raises(ValueError):
         apply_overrides({}, ["no_equals_sign"])
+
+
+def test_trim_log_drops_entries_after_the_checkpoint(tmp_path):
+    from open_r1.grounded.training import trim_log
+
+    log = tmp_path / "train_log.jsonl"
+    log.write_text("".join(f'{{"step": {step}}}\n' for step in (5, 10, 15, 20)), encoding="utf-8")
+    trim_log(log, None)
+    assert len(log.read_text(encoding="utf-8").splitlines()) == 4
+    trim_log(log, tmp_path / "checkpoint-10")
+    assert [line for line in log.read_text(encoding="utf-8").splitlines()] == ['{"step": 5}', '{"step": 10}']

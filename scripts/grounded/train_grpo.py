@@ -30,6 +30,7 @@ from open_r1.grounded.training import (  # noqa: E402
     load_training_records,
     lora_config,
     make_jsonl_logger,
+    trim_log,
 )
 
 
@@ -82,6 +83,7 @@ def main() -> None:
     )
 
     checkpoint = get_last_checkpoint(str(output_dir)) if args.resume and output_dir.is_dir() else None
+    trim_log(log_path, checkpoint)
     start = time.time()
     result = trainer.train(resume_from_checkpoint=checkpoint)
     runtime = time.time() - start
