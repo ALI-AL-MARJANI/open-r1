@@ -103,6 +103,21 @@ def make_jsonl_logger(path: str | Path):
     return JsonlLogger()
 
 
+def trim_log(path: str | Path, checkpoint: str | Path | None) -> None:
+    """Drop the log entries written after `checkpoint` (a `checkpoint-<step>` directory).
+
+    A resumed run repeats the steps between its last checkpoint and the interruption;
+    without this the JSONL log would contain them twice.
+    """
+    path = Path(path)
+    if checkpoint is None or not path.exists():
+        return
+    last_step = int(Path(checkpoint).name.rsplit("-", 1)[1])
+    with open(path, encoding="utf-8") as handle:
+        kept = [line for line in handle if line.strip() and json.loads(line)["step"] <= last_step]
+    path.write_text("".join(kept), encoding="utf-8")
+
+
 def count_parameters(model) -> dict[str, int]:
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
     total = sum(p.numel() for p in model.parameters())
