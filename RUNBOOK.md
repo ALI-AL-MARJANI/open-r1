@@ -33,7 +33,7 @@ before committing to a full run, and update this table.
 | Step | Apple M4, 16 GB (MPS) | 1x T4 16 GB | 1x L4 / A10G 24 GB |
 |---|---|---|---|
 | Reward-hacking report | 10 s (measured, CPU) | same | same |
-| Evaluation, 0.5B, 4 datasets (3,000 examples) | 65 and 82 min generation time on two runs (measured; the committed run took 35 + 9 + 23 + 16 min) | ~15 min (estimate) | ~10 min (estimate) |
+| Evaluation, 0.5B, 4 datasets (3,000 examples) | zero-shot: 65 and 82 min generation time on two runs (measured; the committed run took 35 + 9 + 23 + 16 min); few-shot: 113 min (measured, 31 + 21 + 35 + 27 min) | ~15 min (estimate) | ~10 min (estimate) |
 | Evaluation, 1.5B, 4 datasets | ~3x the 0.5B time (estimate) | ~30 min (estimate) | ~20 min (estimate) |
 | SFT 0.5B, 250 steps | ~30 min (estimate) | ~10 min (estimate) | ~5 min (estimate) |
 | GRPO 0.5B, 500 steps | not practical: 130-195 s per step measured on a 3-step pilot, with 8 GB of swap in use (about one day for 500 steps) | ~4-6 h (estimate) | ~2-3 h (estimate) |
@@ -146,8 +146,8 @@ bootstrap intervals over examples instead of a standard deviation over seeds.
 
 The learning rate (`1e-5`) has not been tuned. If `rewards/answer_correctness/mean`
 is flat after 100 steps, or `rewards/format/mean` collapses, rerun the pilot with
-`--set grpo.learning_rate=5e-6` and `2e-5` for 100 steps and keep the better one for
-all seeds; record the choice in the README.
+`--set grpo.learning_rate=5e-6`, `2e-5` and `1e-4` (the usual range for LoRA adapters)
+for 100 steps and keep the best one for all seeds; record the choice in the README.
 
 ## 5. Ablations (one seed each, same protocol as the main run)
 
@@ -179,6 +179,7 @@ python scripts/grounded/plot_training.py --run grpo_qwen1.5b
 
 ```bash
 python scripts/grounded/make_tables.py                       # results/tables/*.md, summary.json
+python scripts/grounded/compare.py --a zero_shot_qwen0.5b --b few_shot_qwen0.5b    # done
 python scripts/grounded/compare.py --a zero_shot_qwen0.5b --b grpo_qwen0.5b_seed0
 python scripts/grounded/compare.py --a sft_qwen0.5b_seed0  --b grpo_qwen0.5b_seed0
 python scripts/grounded/compare.py --a sft_qwen0.5b_seed0  --b grpo_qwen0.5b_seed0 --dataset hotpotqa \
@@ -209,10 +210,11 @@ Add the link to the README once the upload exists.
 |---|---|---|
 | 1. Reward-hacking study | done | `results/reward_hacking.{json,md}` |
 | 2. Zero-shot Qwen2.5-0.5B | done (Apple M4) | `results/eval/zero_shot_qwen0.5b/` |
-| 2. Zero-shot Qwen2.5-1.5B, few-shot 0.5B / 1.5B | pending | `results/eval/` |
+| 2. Few-shot Qwen2.5-0.5B | done (Apple M4) | `results/eval/few_shot_qwen0.5b/` |
+| 2. Zero-shot and few-shot Qwen2.5-1.5B | pending | `results/eval/` |
 | 3. SFT 0.5B, 3 seeds | pending | `results/sft/`, `results/eval/sft_qwen0.5b_seed*/` |
 | 4. GRPO 0.5B, 3 seeds | pending | `results/grpo/`, `results/eval/grpo_qwen0.5b_seed*/` |
 | 5. Ablations | pending | `results/eval/ablation_*_seed0/` |
 | 6. SFT and GRPO 1.5B | pending | `results/eval/*_qwen1.5b_seed0/` |
-| 7. Tables, tests, figures | partial (tables for the zero-shot 0.5B run only) | `results/tables/` |
+| 7. Tables, tests, figures | partial (tables and paired test for the zero-shot and few-shot 0.5B runs) | `results/tables/`, `results/comparisons/` |
 | 8. Adapter on the Hub | pending | - |
