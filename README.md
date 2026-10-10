@@ -20,7 +20,7 @@ then works.
 | Reward shortcut closed | "always abstain": 100% → 37.5% of the maximum reward (9.1% on answerable questions) |
 | Baselines measured | zero-shot Qwen2.5-0.5B: F1 14.2, 26.4% of quotes not found in the context; 3-shot: F1 17.7, 20.7%, with 37.8% of outputs no longer valid JSON (SQuAD v2 with distractors) |
 | Trained models | **not yet**: GRPO, SFT and ablation runs are pending, their rows read `TBD (run pending)` |
-| Reproducibility | every number comes from a file in [`results/`](results/) with its git SHA, library versions and hardware; 162 tests run in under a second on CPU |
+| Reproducibility | every number comes from a file in [`results/`](results/) with its git SHA, library versions and hardware; 163 tests run in under a second on CPU |
 
 > **Status.** Nothing here shows that the method improves over its baselines yet.
 > [RUNBOOK.md](RUNBOOK.md) lists the exact commands for the pending runs.
@@ -389,7 +389,7 @@ All commands, hardware requirements and durations are in [RUNBOOK.md](RUNBOOK.md
 
 ```bash
 pip install -r requirements-grounded.txt
-make grounded-test                                    # 162 tests, CPU, < 1 s
+make grounded-test                                    # 163 tests, CPU, < 1 s
 python scripts/grounded/reward_hacking_report.py      # CPU, 10 s
 python scripts/grounded/evaluate.py --run_name zero_shot_qwen0.5b --model Qwen/Qwen2.5-0.5B-Instruct
 python scripts/grounded/train_grpo.py --config configs/grounded/grpo_qwen0.5b.yaml --seed 0
@@ -417,7 +417,7 @@ src/open_r1/grounded/      package of this fork (standard library only for rewar
 scripts/grounded/          train_grpo.py, train_sft.py, evaluate.py, make_tables.py, compare.py,
                            plot_training.py, reward_hacking_report.py
 configs/grounded/          one YAML per experiment (main runs, SFT baselines, ablations, evaluation)
-tests/grounded/            162 tests: parser fuzzing, rewards, reward shortcuts, data, metrics, configs
+tests/grounded/            163 tests: parser fuzzing, rewards, reward shortcuts, data, metrics, configs
 results/                   committed raw results, per-example predictions and generated tables
 notebooks/                 Kaggle / Colab notebook that runs the main GRPO configuration on a T4
 docs/upstream_README.md    README of huggingface/open-r1
