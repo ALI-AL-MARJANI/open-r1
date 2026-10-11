@@ -53,6 +53,7 @@ class HFGenerator:
         max_new_tokens: int = 256,
         dtype: str = "auto",
         device: str | None = None,
+        repetition_penalty: float = 1.0,
     ) -> None:
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -69,6 +70,7 @@ class HFGenerator:
         self.model = model.to(self.device).eval()
         self.batch_size = batch_size
         self.max_new_tokens = max_new_tokens
+        self.repetition_penalty = repetition_penalty
         self.description = {
             "backend": "hf",
             "model": model_name,
@@ -78,7 +80,7 @@ class HFGenerator:
             "batch_size": batch_size,
             "max_new_tokens": max_new_tokens,
             "decoding": "greedy",
-            "repetition_penalty": 1.0,
+            "repetition_penalty": repetition_penalty,
         }
 
     def generate(self, conversations: list[Messages]) -> list[str]:
@@ -104,9 +106,9 @@ class HFGenerator:
                     temperature=None,
                     top_p=None,
                     top_k=None,
-                    # Qwen's generation_config.json sets repetition_penalty=1.1, which
+                    # Always passed explicitly: Qwen's generation_config.json sets 1.1, which
                     # penalises copying the context and is still applied when do_sample=False.
-                    repetition_penalty=1.0,
+                    repetition_penalty=self.repetition_penalty,
                     pad_token_id=self.tokenizer.pad_token_id,
                 )
             completions = generated[:, batch["input_ids"].shape[1] :]

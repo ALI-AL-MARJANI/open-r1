@@ -83,7 +83,12 @@ def main() -> None:
         generator = OpenAICompatibleGenerator(args.base_url, args.model, generation["max_new_tokens"])
     else:
         generator = HFGenerator(
-            args.model, args.adapter, generation["batch_size"], generation["max_new_tokens"], generation["dtype"]
+            args.model,
+            args.adapter,
+            generation["batch_size"],
+            generation["max_new_tokens"],
+            generation["dtype"],
+            repetition_penalty=generation["repetition_penalty"],
         )
 
     demonstrations = select_demonstrations(config["few_shot"]) if args.few_shot else None

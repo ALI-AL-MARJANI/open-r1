@@ -106,3 +106,8 @@ def test_trim_log_drops_entries_after_the_checkpoint(tmp_path):
     assert len(log.read_text(encoding="utf-8").splitlines()) == 4
     trim_log(log, tmp_path / "checkpoint-10")
     assert [line for line in log.read_text(encoding="utf-8").splitlines()] == ['{"step": 5}', '{"step": 10}']
+
+
+def test_evaluation_decoding_is_plain_greedy():
+    # The model's own generation config would apply a repetition penalty (1.1 for Qwen2.5).
+    assert load_config(CONFIG_DIR / "eval.yaml")["generation"]["repetition_penalty"] == 1.0

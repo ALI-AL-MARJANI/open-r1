@@ -34,6 +34,9 @@ generation:
   max_new_tokens: 256
   batch_size: 16
   dtype: auto
+  # 1.0 is plain greedy decoding. Qwen2.5's generation_config.json sets 1.1, which
+  # transformers would otherwise apply; see "Decoding sensitivity" in the README.
+  repetition_penalty: 1.0
 
 few_shot:               # used only with --few_shot
   n_answerable: 2
