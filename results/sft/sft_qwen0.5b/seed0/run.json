@@ -1,0 +1,89 @@
+{
+  "run_name": "sft_qwen0.5b",
+  "seed": 0,
+  "config": {
+    "run_name": "sft_qwen0.5b",
+    "model": {
+      "name": "Qwen/Qwen2.5-0.5B-Instruct",
+      "dtype": "float32"
+    },
+    "lora": {
+      "r": 32,
+      "alpha": 64,
+      "dropout": 0.0,
+      "target_modules": [
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "o_proj",
+        "gate_proj",
+        "up_proj",
+        "down_proj"
+      ]
+    },
+    "data": {
+      "dataset": "squad_v2",
+      "split": "train",
+      "n_examples": 2000,
+      "answerable_fraction": 0.5,
+      "n_distractors": 3,
+      "max_prompt_words": 700,
+      "seed": 0
+    },
+    "sft": {
+      "num_train_epochs": 2,
+      "per_device_train_batch_size": 1,
+      "gradient_accumulation_steps": 16,
+      "learning_rate": 0.0001,
+      "lr_scheduler_type": "cosine",
+      "warmup_steps": 10,
+      "bf16": false,
+      "logging_steps": 5,
+      "save_steps": 25,
+      "save_total_limit": 1,
+      "report_to": "none"
+    },
+    "config_path": "configs/grounded/sft_qwen0.5b.yaml"
+  },
+  "n_training_examples": 2000,
+  "n_answerable": 1000,
+  "parameters": {
+    "trainable": 17596416,
+    "total": 511629184
+  },
+  "resumed_from": null,
+  "train_runtime_seconds": 9999.0,
+  "global_step": 250,
+  "train_metrics": {
+    "train_runtime": 9998.9045,
+    "train_samples_per_second": 0.4,
+    "train_steps_per_second": 0.025,
+    "total_flos": 8062689098187264.0,
+    "train_loss": 0.06055994063615799
+  },
+  "adapter_dir": "data/sft_qwen0.5b/seed0",
+  "environment": {
+    "date_utc": "2026-10-11T06:51:58+00:00",
+    "git_sha": "7c73d0a05535a3742ef3a02f445f73909846a5ed",
+    "git_dirty": false,
+    "python": "3.11.15",
+    "packages": {
+      "torch": "2.14.1",
+      "transformers": "5.18.0",
+      "trl": "0.29.1",
+      "peft": "0.21.2",
+      "datasets": "5.0.1",
+      "accelerate": "1.15.0",
+      "vllm": null,
+      "openai": null
+    },
+    "hardware": {
+      "platform": "macOS-15.6.1-arm64-arm-64bit",
+      "machine": "arm64",
+      "cpu_count": 10,
+      "ram_gb": 17.2,
+      "accelerator": "mps"
+    },
+    "command": "scripts/grounded/train_sft.py --config configs/grounded/sft_qwen0.5b.yaml --seed 0 --set model.dtype=float32 sft.bf16=false sft.per_device_train_batch_size=1 sft.gradient_accumulation_steps=16"
+  }
+}
