@@ -2,37 +2,41 @@
 
 [![CI](https://github.com/ALI-AL-MARJANI/open-r1/actions/workflows/ci.yml/badge.svg)](https://github.com/ALI-AL-MARJANI/open-r1/actions/workflows/ci.yml)
 
-**Can reinforcement learning teach a 0.5B model to quote its sources word for word, and can the reward be trusted?**
+**Rewards checked by string matching for question answering with verbatim citations, on a 0.5B model: what such rewards can be gamed by, and what the baselines they have to beat look like.**
 
-Out of the box, Qwen2.5-0.5B alters or invents **1 in 4** of the quotes it gives as
-evidence, and says "the context does not answer this" for **2%** of the questions that
-have no answer. Grounded-R1 is a setup to fine-tune it with GRPO on rewards checked by
-string matching against the source, with no judge model.
+The project was set up to fine-tune Qwen2.5-0.5B with GRPO so that it quotes its
+sources word for word, using rewards verified against the source text with no judge
+model. This repository contains:
 
-The first version of those rewards had a flaw that is easy to miss: **a model that
-always refuses to answer scored 100% of the maximum reward.** This repository
-documents the flaw, the redesign that brings that score down to 37.5%, the tests that
-keep it there, and the experimental protocol built to measure whether the training
-then works.
+* **a reward suite and a study of its shortcuts.** In the first version of the rewards,
+  a model that always refuses to answer scored 100% of the maximum. The redesign brings
+  that score to 37.5%, and tests keep it there;
+* **an evaluation protocol** on four datasets, with bootstrap intervals and paired tests;
+* **three measured baselines**: zero-shot, 3-shot, and supervised fine-tuning (SFT) with
+  LoRA, one training seed;
+* **a GRPO training pipeline** (`trl.GRPOTrainer`, one main configuration and six
+  ablations). **It was not run**: there is no GRPO result in this repository.
 
 | | |
 |---|---|
 | Reward shortcut closed | "always abstain": 100% → 37.5% of the maximum reward (9.1% on answerable questions) |
-| Baselines measured | zero-shot Qwen2.5-0.5B: F1 14.2, 26.4% of quotes not found in the context; 3-shot: F1 17.7, 20.7%, with 37.8% of outputs no longer valid JSON (SQuAD v2 with distractors) |
-| Trained models | **not yet**: GRPO, SFT and ablation runs are pending, their rows read `TBD (run pending)` |
-| Reproducibility | every number comes from a file in [`results/`](results/) with its git SHA, library versions and hardware; 163 tests run in under a second on CPU |
+| Supervised baseline | SFT with LoRA on 2,000 SQuAD v2 questions, one seed: F1 59.9 and 0.8% of quotes not found in the context, against F1 7.7 and 20.5% zero-shot and F1 18.3 and 16.3% with 3 demonstrations (SQuAD v2 with distractors) |
+| Decoding default | the repetition penalty of 1.1 in Qwen's generation config, applied by `transformers` even without sampling, makes the same SFT model abstain on 99.5% of the questions (F1 on answerable questions 50.4 → 0.8), while it raises the share of valid zero-shot outputs from 58.6% to 94.0% |
+| GRPO | not run; code, configurations and commands are provided |
+| Reproducibility | every number comes from a file in [`results/`](results/) with its git SHA, library versions and hardware; 164 tests run in under a second on CPU |
 
-> **Status.** Nothing here shows that the method improves over its baselines yet.
-> [RUNBOOK.md](RUNBOOK.md) lists the exact commands for the pending runs.
+> **Status.** No claim is made about GRPO: the training was never executed. The only
+> trained model is the supervised baseline, with a single seed. The runs that were not
+> executed are listed in [Not run](#not-run).
 
-Built on a fork of [huggingface/open-r1](https://github.com/huggingface/open-r1)
-(Apache-2.0). The upstream training code, recipes and scripts are kept as they are,
-except for the upstream CI and Dependabot configuration, which this fork replaces
-with its own workflow; the upstream README is preserved in
-[docs/upstream_README.md](docs/upstream_README.md). Everything specific to this
-project lives in `src/open_r1/grounded/`, `scripts/grounded/`, `configs/grounded/`,
-`tests/grounded/`, `results/`, `RUNBOOK.md` and `requirements-grounded.txt`, and uses
-`trl.GRPOTrainer` directly rather than the upstream training script.
+Built on [huggingface/open-r1](https://github.com/huggingface/open-r1) (Apache-2.0).
+The upstream training code, recipes and scripts are kept as they are, except for the
+upstream CI and Dependabot configuration, replaced by one workflow; the upstream README
+is preserved in [docs/upstream_README.md](docs/upstream_README.md). Everything specific
+to this project lives in `src/open_r1/grounded/`, `scripts/grounded/`,
+`configs/grounded/`, `tests/grounded/`, `results/` and `requirements-grounded.txt`,
+and uses `trl.GRPOTrainer` directly rather than the
+upstream training script.
 
 ## TL;DR
 
@@ -40,20 +44,17 @@ project lives in `src/open_r1/grounded/`, `scripts/grounded/`, `configs/grounded
 
 | Run | Seeds | n | Format ↑ | EM ↑ | F1 ↑ | HasAns F1 ↑ | NoAns acc. ↑ | Abstention F1 ↑ | Unverified quotes ↓ | Evidence recall ↑ | Chunk F1 ↑ |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `zero_shot_qwen0.5b` | 1 | 1000 | 94.0 [92.5, 95.5] | 3.9 [2.7, 5.1] | 14.2 [12.7, 15.9] | 26.6 [24.3, 29.0] | 1.8 [0.8, 3.0] | 2.0 [0.4, 3.8] | 26.4 [23.5, 29.2] | 29.6 [25.6, 33.4] | 46.3 [42.5, 50.6] |
-| `few_shot_qwen0.5b` | 1 | 1000 | 62.2 [59.3, 65.3] | 12.8 [10.9, 14.9] | 17.7 [15.6, 20.0] | 18.3 [15.6, 21.3] | 17.0 [14.1, 20.4] | 26.7 [22.6, 31.4] | 20.7 [18.1, 23.2] | 22.2 [18.6, 26.1] | 14.4 [12.4, 16.6] |
-| `sft_qwen0.5b` | 3 | 1000 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
-| `grpo_qwen0.5b` | 3 | 1000 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
-| `zero_shot_qwen1.5b` | 1 | 1000 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
-| `sft_qwen1.5b` | 1 | 1000 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
-| `grpo_qwen1.5b` | 1 | 1000 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+| `zero_shot_qwen0.5b` | 1 | 1000 | 58.6 [55.3, 61.6] | 0.7 [0.2, 1.3] | 7.7 [6.7, 8.9] | 15.3 [13.3, 17.3] | 0.2 [0.0, 0.6] | 0.4 [0.0, 1.2] | 20.5 [17.2, 23.6] | 28.8 [25.0, 32.3] | 28.5 [25.1, 31.9] |
+| `few_shot_qwen0.5b` | 1 | 1000 | 64.9 [61.7, 67.8] | 12.3 [10.4, 14.5] | 18.3 [16.4, 20.8] | 20.0 [17.5, 23.2] | 16.6 [13.5, 20.0] | 26.1 [22.0, 30.7] | 16.3 [13.5, 19.3] | 22.2 [18.8, 25.8] | 15.1 [12.5, 17.9] |
+| `sft_qwen0.5b` | 1 | 1000 | 99.9 [99.7, 100.0] | 56.2 [53.3, 59.3] | 59.9 [57.0, 63.0] | 50.4 [46.7, 54.7] | 69.4 [65.3, 73.2] | 69.9 [66.3, 73.0] | 0.8 [0.2, 1.6] | 54.8 [50.7, 58.9] | 67.8 [64.0, 71.9] |
 
 Setup: 1,000 SQuAD v2 dev questions (500 answerable, 500 unanswerable, subset seed 0),
-gold paragraph plus 3 same-article distractors, greedy decoding. Source:
-`results/tables/squad_v2_distractors.md`, generated by `scripts/grounded/make_tables.py`
-from `results/eval/`. Single runs show a 95% bootstrap interval over examples; trained
-models will be reported as mean ± standard deviation over 3 training seeds. The two
-measured rows are the zero-shot and few-shot 0.5B model (Apple M4, MPS, float16).
+gold paragraph plus 3 same-article distractors, greedy decoding with no repetition
+penalty, at most 256 new tokens. Source: `results/tables/squad_v2_distractors.md`,
+generated by `scripts/grounded/make_tables.py` from `results/eval/`. Each row is one
+run with its 95% bootstrap interval over examples; `sft_qwen0.5b` is one training seed,
+so its interval does not cover training variance. All runs on an Apple M4 (MPS, float16
+inference).
 
 **2. Reward shortcuts** (share of the maximum reward obtained by policies that ignore the question)
 
@@ -76,10 +77,12 @@ half it obtains 9.1%.
 
 Retrieval-augmented systems often support an answer with a quotation that does not
 appear in the source. For extractive questions, a quotation can be verified by string
-matching, which makes it a cheap and exact reward for reinforcement learning. This
-project studies, at small scale, whether GRPO with such rewards improves answer
-quality and citation validity over prompting and supervised fine-tuning, and which
-reward terms matter.
+matching, which makes it a cheap and exact reward for reinforcement learning. The
+question behind the project is whether GRPO with such rewards improves answer quality
+and citation validity over prompting and supervised fine-tuning at small scale, and
+which reward terms matter. This repository answers the two preliminary questions (can
+the rewards be gamed, and where do the baselines stand) and leaves the GRPO comparison
+unanswered.
 
 ## Method
 
@@ -121,7 +124,7 @@ scored on the same terms. The total reward of a completion is the weighted sum o
 defined terms (maximum 5.5 on answerable questions, 2.5 on unanswerable ones). Weights
 and shaping constants are set in the experiment YAML, not in the code.
 
-### Optimisation
+### Optimisation (implemented, not run)
 
 `trl.GRPOTrainer` (TRL 0.29.1) with LoRA adapters (r = 32 on all attention and MLP
 projections). For each prompt, 8 completions are sampled at temperature 1.0; the
@@ -130,19 +133,24 @@ advantage of a completion is its total reward standardised within the group,
 surrogate objective (ε = 0.2). One optimizer step uses 4 prompts (32 completions).
 Hyperparameters: [configs/grounded/grpo_qwen0.5b.yaml](configs/grounded/grpo_qwen0.5b.yaml).
 
+The supervised baseline uses `trl.SFTTrainer` with the same adapter shape, prompt and
+training pool, and the reference response of each example as target (2 epochs, 250
+optimizer steps of 16 examples, loss on the response only):
+[configs/grounded/sft_qwen0.5b.yaml](configs/grounded/sft_qwen0.5b.yaml).
+
 ### Deviations from the reference methods
 
 | Reference | This project |
 |---|---|
 | GRPO (Shao et al., 2024): per-sequence length normalisation of the loss, KL penalty to a reference policy (β = 0.04) | TRL's default loss normalisation (`loss_type="dapo"`, token-level over the batch, Yu et al., 2025) and no KL term (β = 0). β = 0.04 and the Dr. GRPO objective (Liu et al., 2025: constant length normalisation, no division by the standard deviation) are ablations |
-| DeepSeek-R1 (Guo et al., 2025): full fine-tuning of large models | LoRA on 0.5B and 1.5B models, single GPU |
+| DeepSeek-R1 (Guo et al., 2025): full fine-tuning of large models | LoRA on a 0.5B model (a 1.5B configuration exists and was not run) |
 | ALCE (Gao et al., 2023), Trust-Align (Song et al., 2025), Ground-GRPO (Sim et al., 2025): citations verified with an NLI model on long-form answers | Citations verified by exact substring match on short extractive answers. This is exact and free, but only applies when the answer is a span of the context, and it cannot tell that a verbatim quote fails to support the answer beyond checking that it contains the gold answer string |
 | Ground-GRPO (Sim et al., 2025): two training stages (answerable questions first, then refusal), 4B-9B models, full fine-tuning | One stage on a 50/50 mix of answerable and unanswerable questions |
 
 Sim et al. (2025) already show that GRPO with answer, citation and refusal rewards
 improves grounded answering on 4B-9B models. This project does not claim that idea;
-it is a small-scale study with string-verifiable rewards and an explicit analysis of
-reward shortcuts.
+it provides string-verifiable rewards, an explicit analysis of their shortcuts and the
+baselines for a small-scale replication that was not carried out.
 
 ## Experimental protocol
 
@@ -179,9 +187,19 @@ Defined in `src/open_r1/grounded/metrics.py` (module docstring) and unit-tested.
   answer if it is yes or no, and maybe otherwise.
 
 Uncertainty: 95% percentile bootstrap over examples (1,000 resamples) for every run;
-mean ± standard deviation over 3 training seeds for trained models; paired bootstrap
-test (10,000 resamples) for comparisons between two systems
-(`scripts/grounded/compare.py`).
+paired bootstrap test (10,000 resamples) for comparisons between two systems
+(`scripts/grounded/compare.py`). `make_tables.py` reports mean ± standard deviation
+over training seeds when several exist; the only trained model here has one seed.
+
+### Decoding
+
+Greedy decoding, at most 256 new tokens, repetition penalty 1.0
+(`generation` section of [configs/grounded/eval.yaml](configs/grounded/eval.yaml)). The
+penalty is set explicitly because `transformers` otherwise applies the value of the
+model's `generation_config.json` (1.1 for Qwen2.5) even when sampling is disabled; the
+value used is recorded in every result file. `trl.GRPOTrainer` also generates with a
+penalty of 1.0 during training. The effect of this setting is measured in
+[Decoding sensitivity](#decoding-sensitivity).
 
 ### Baselines
 
@@ -189,8 +207,7 @@ test (10,000 resamples) for comparisons between two systems
 |---|---|
 | Zero-shot base model with the system prompt | simple baseline |
 | Few-shot (3 fixed demonstrations from the training split) | prompting baseline |
-| SFT with LoRA on reference responses (quote = sentence containing the gold span) | supervised reference with the same data, adapter shape and prompt as GRPO |
-| Zero-shot Qwen2.5-7B served locally (optional) | larger-model reference |
+| SFT with LoRA on reference responses (quote = sentence containing the gold span) | supervised reference with the same data, adapter shape and prompt as the GRPO configuration |
 
 ### Published reference points
 
@@ -206,18 +223,31 @@ orientation and are not comparable row by row with the tables of this repository
 
 ## Results
 
-### In-distribution: SQuAD v2 with distractors
+### In-distribution: SQuAD v2
 
-See the TL;DR table. The same 1,000 questions without distractors:
+With distractors: see the TL;DR table. The same 1,000 questions with the gold paragraph
+only:
 
 | Run | Seeds | n | Format ↑ | EM ↑ | F1 ↑ | HasAns F1 ↑ | NoAns acc. ↑ | Abstention F1 ↑ | Unverified quotes ↓ | Evidence recall ↑ | Chunk F1 ↑ |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `zero_shot_qwen0.5b` | 1 | 1000 | 97.8 [96.9, 98.6] | 8.5 [6.8, 10.2] | 21.2 [19.3, 23.3] | 36.2 [33.7, 39.1] | 6.2 [4.2, 8.4] | 3.9 [1.9, 6.3] | 29.4 [26.2, 32.6] | 39.8 [35.4, 44.2] | 64.3 [60.1, 68.4] |
-| `few_shot_qwen0.5b` | 1 | 1000 | 91.3 [89.7, 93.0] | 40.4 [37.0, 43.2] | 43.8 [40.8, 46.6] | 14.8 [12.2, 17.6] | 72.8 [68.9, 76.5] | 62.9 [59.4, 65.8] | 16.1 [12.8, 19.4] | 19.6 [16.4, 23.1] | 17.8 [15.4, 20.5] |
-| `sft_qwen0.5b` | 3 | 1000 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
-| `grpo_qwen0.5b` | 3 | 1000 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+| `zero_shot_qwen0.5b` | 1 | 1000 | 81.7 [79.3, 84.1] | 2.2 [1.4, 3.2] | 13.5 [12.2, 15.1] | 25.2 [23.2, 27.5] | 1.8 [0.8, 3.1] | 3.5 [1.5, 6.0] | 25.3 [22.4, 28.0] | 49.2 [44.7, 53.4] | 59.9 [55.8, 63.7] |
+| `few_shot_qwen0.5b` | 1 | 1000 | 88.2 [86.2, 90.2] | 40.5 [37.5, 43.4] | 43.2 [40.1, 46.0] | 12.8 [10.5, 15.3] | 73.6 [69.7, 77.3] | 63.2 [60.0, 66.1] | 6.9 [3.7, 10.3] | 16.0 [13.0, 19.4] | 22.5 [19.2, 25.9] |
+| `sft_qwen0.5b` | 1 | 1000 | 100.0 [100.0, 100.0] | 57.3 [54.2, 60.4] | 61.7 [58.8, 64.7] | 56.9 [53.1, 61.1] | 66.4 [62.1, 70.5] | 71.1 [67.5, 74.2] | 3.0 [1.7, 4.5] | 59.6 [55.1, 63.9] | 76.8 [73.2, 80.7] |
 
 Source: `results/tables/squad_v2.md`.
+
+Paired bootstrap tests on the same examples (`results/comparisons/`, 10,000 resamples),
+difference in points with its 95% interval:
+
+| Comparison (B − A) | Dataset | F1 | F1 on answerable | Accuracy on unanswerable | Unverified quotes | Chunk F1 |
+|---|---|---:|---:|---:|---:|---:|
+| SFT − zero-shot | with distractors | +52.2 [+49.0, +55.3] | +35.2 [+30.9, +39.5] | +69.2 [+65.2, +73.2] | −19.7 [−23.2, −16.4] | +39.3 [+34.1, +44.5] |
+| SFT − few-shot | with distractors | +41.6 [+38.3, +45.0] | +30.4 [+26.0, +35.0] | +52.8 [+48.0, +57.5] | −15.6 [−18.5, −12.8] | +52.7 [+48.0, +57.4] |
+| few-shot − zero-shot | with distractors | +10.6 [+8.3, +12.9] | +4.8 [+1.8, +7.8] | +16.4 [+13.2, +19.8] | −4.2 [−8.2, −0.2] | −13.4 [−17.8, −9.0] |
+| SFT − zero-shot | gold paragraph only | +48.1 [+45.0, +51.4] | +31.7 [+27.3, +36.1] | +64.6 [+60.3, +68.8] | −22.3 [−25.3, −19.2] | +16.9 [+11.8, +22.0] |
+| SFT − few-shot | gold paragraph only | +18.5 [+14.8, +22.2] | +44.2 [+39.5, +48.6] | −7.2 [−12.4, −2.1] | −3.9 [−7.7, −0.4] | +54.3 [+49.5, +59.0] |
+
+These intervals are over evaluation examples for one SFT training seed.
 
 ### Transfer (no training on these datasets)
 
@@ -225,11 +255,9 @@ HotpotQA distractor, 500 dev questions:
 
 | Run | Seeds | n | Format ↑ | Ans EM ↑ | Ans F1 ↑ | Sup EM ↑ | Sup F1 ↑ | Joint F1 ↑ | Chunk F1 ↑ | Unverified quotes ↓ |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `zero_shot_qwen0.5b` | 1 | 500 | 82.0 [78.6, 85.2] | 5.0 [3.2, 7.0] | 14.6 [12.4, 16.8] | 0.2 [0.0, 0.8] | 11.7 [9.5, 13.8] | 3.3 [2.4, 4.2] | 16.5 [14.1, 18.9] | 25.3 [21.6, 29.4] |
-| `few_shot_qwen0.5b` | 1 | 500 | 38.4 [34.0, 42.8] | 1.2 [0.4, 2.2] | 5.8 [4.1, 7.4] | 0.8 [0.2, 1.6] | 4.1 [2.7, 5.7] | 0.8 [0.3, 1.4] | 5.3 [3.7, 6.8] | 27.9 [22.0, 34.0] |
-| `sft_qwen0.5b` | 3 | 500 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
-| `grpo_qwen0.5b` | 3 | 500 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
-| `grpo_qwen1.5b` | 1 | 500 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+| `zero_shot_qwen0.5b` | 1 | 500 | 50.6 [46.2, 55.0] | 1.2 [0.4, 2.2] | 6.9 [5.5, 8.3] | 0.2 [0.0, 0.8] | 8.7 [7.0, 10.5] | 1.6 [1.1, 2.3] | 11.7 [9.4, 13.9] | 28.1 [22.9, 33.0] |
+| `few_shot_qwen0.5b` | 1 | 500 | 44.6 [39.8, 49.2] | 2.0 [0.8, 3.2] | 6.8 [5.2, 8.6] | 0.4 [0.0, 1.0] | 4.7 [3.3, 6.1] | 1.0 [0.6, 1.6] | 5.8 [4.1, 7.3] | 19.3 [14.3, 24.8] |
+| `sft_qwen0.5b` | 1 | 500 | 99.4 [98.6, 100.0] | 19.0 [15.6, 22.4] | 25.5 [22.1, 29.0] | 0.0 [0.0, 0.0] | 13.1 [11.0, 15.3] | 5.1 [3.7, 6.4] | 21.3 [18.4, 24.0] | 10.9 [8.0, 13.8] |
 
 Source: `results/tables/hotpotqa.md`.
 
@@ -237,83 +265,119 @@ PubMedQA PQA-L, 500 questions:
 
 | Run | Seeds | n | Format ↑ | Accuracy ↑ | Macro F1 ↑ | Answer rate ↑ | Unverified quotes ↓ |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| `zero_shot_qwen0.5b` | 1 | 500 | 88.8 [85.8, 91.4] | 39.4 [35.0, 43.4] | 25.9 [22.8, 28.8] | 88.8 [85.8, 91.4] | 15.2 [11.6, 19.7] |
-| `few_shot_qwen0.5b` | 1 | 500 | 55.0 [50.4, 59.0] | 32.2 [28.2, 36.4] | 24.5 [21.3, 27.7] | 53.8 [49.0, 57.8] | 8.4 [6.2, 10.6] |
-| `sft_qwen0.5b` | 3 | 500 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
-| `grpo_qwen0.5b` | 3 | 500 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
-| `grpo_qwen1.5b` | 1 | 500 | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+| `zero_shot_qwen0.5b` | 1 | 500 | 57.0 [52.6, 61.4] | 25.2 [21.0, 29.0] | 19.6 [16.6, 22.2] | 57.0 [52.6, 61.4] | 4.6 [2.4, 7.4] |
+| `few_shot_qwen0.5b` | 1 | 500 | 65.0 [60.8, 69.2] | 37.0 [32.4, 41.2] | 26.3 [23.0, 29.5] | 63.8 [59.6, 68.0] | 3.7 [2.4, 5.1] |
+| `sft_qwen0.5b` | 1 | 500 | 100.0 [100.0, 100.0] | 16.8 [13.4, 20.2] | 14.7 [11.6, 17.7] | 72.8 [69.0, 76.6] | 0.8 [0.0, 1.9] |
 
 Source: `results/tables/pubmedqa.md`.
 
-### Baselines without training: observations
+### Observations
 
-Zero-shot, from `results/eval/zero_shot_qwen0.5b/` (Apple M4, float16, greedy decoding):
+Counts below are taken from the per-example files `results/eval/<run>/<dataset>.predictions.jsonl`.
 
-* **The base model almost never abstains.** It answers 93.3% of the SQuAD v2 questions
-  with distractors and abstains correctly on 1.8% of the unanswerable ones
-  (abstention recall 1.0%), which caps its overall F1 at 14.2.
-* **About a quarter of its quotes are not in the context**: 26.4% with distractors,
-  29.4% with the gold paragraph alone, 25.3% on HotpotQA.
-* **Distractors hurt**: F1 on answerable questions drops from 36.2 to 26.6 and chunk F1
-  from 64.3 to 46.3 when three same-article paragraphs are added.
-* **Its reward is below that of always abstaining** (35.7% of the maximum against
-  37.5%). Abstaining still scores lowest on answerable prompts (9.1%), but the
-  abstention rate is the first curve to check in a GRPO run; it is logged at every step.
-* **HotpotQA is far out of reach zero-shot**: supporting-fact F1 11.7 and joint F1 3.3,
-  against 66.66 and 40.86 for the 2018 baseline trained on the task (see the reference
-  table; different protocol).
-* **PubMedQA accuracy (39.4%) is below the majority-class rate** reported by Jin et al.
-  (55.2%). The model never produces an answer starting with "no": 121 of the 172 "no"
-  questions are answered "yes", and 175 outputs are mapped to "maybe" (56 that do not
-  parse and 119 that abstain or whose answer starts with neither word). Part of this
-  is the label-mapping rule, not only the model.
-* The HotpotQA and PubMedQA files were generated with batch size 2 and the SQuAD files
-  with batch size 8 (recorded in each JSON); decoding is greedy in both cases.
-* The evaluation was run twice on the same machine; the 3,000 outputs were identical.
+Zero-shot (`results/eval/zero_shot_qwen0.5b/`):
 
-Few-shot (3 demonstrations: 2 answerable, 1 abstention), from
-`results/eval/few_shot_qwen0.5b/` and the paired test in
-`results/comparisons/zero_shot_qwen0.5b__vs__few_shot_qwen0.5b__squad_v2_distractors.json`:
+* **Four outputs in ten are not valid JSON** on SQuAD v2 with distractors (414 of
+  1,000), and 382 of those are unterminated: the model copies long passages as quotes
+  and reaches the 256-token limit. The same happens on HotpotQA (247 invalid of 500)
+  and PubMedQA (215 of 500).
+* **It almost never abstains**: accuracy on unanswerable questions is 0.2% with
+  distractors and 1.8% with the gold paragraph alone.
+* **A fifth to a quarter of its quotes are not in the context**: 20.5% with distractors,
+  25.3% with the gold paragraph alone, 28.1% on HotpotQA.
+* **Its reward is below that of always abstaining**: 23.6% of the maximum against 37.5%.
+* **PubMedQA accuracy (25.2%) is below the majority-class rate** reported by Jin et al.
+  (55.2%). No answer starts with "no": 71 of the 172 "no" questions are answered "yes",
+  and 322 outputs are mapped to "maybe", 215 of them because they do not parse. Part of
+  this is the label-mapping rule, not only the model.
 
-* **Demonstrations trade one failure for another.** On SQuAD v2
-  with distractors, F1 moves from 14.2 to 17.7 (+3.5 points, 95% interval [+1.0, +5.9]),
-  but only because the model now abstains: accuracy on unanswerable questions rises
-  from 1.8 to 17.0 while F1 on answerable questions falls from 26.6 to 18.3 and chunk F1
-  from 46.3 to 14.4.
-* **The output format degrades.** The share of valid outputs drops from 94.0% to 62.2%
-  (378 invalid outputs against 60). 327 of the 378 are unterminated JSON: the model
-  produces 2.9 quotes per answer against 1.24 zero-shot, and the longer outputs run into
-  the 256-token generation limit shared by all runs.
-* **Abstention is overused once learned.** With the gold paragraph alone, the few-shot
-  model abstains on 658 of the 1,000 questions, 294 of them answerable. Overall F1
-  doubles (21.2 to 43.8) on this balanced set while F1 on answerable questions falls
-  from 36.2 to 14.8; the overall score alone would hide this.
-* **Fewer quotes are invented** (20.7% against 26.4% with distractors, 16.1% against
-  29.4% without), the one consistent improvement on the SQuAD sets.
-* **Transfer gets worse.** On HotpotQA, 308 of 500 outputs are invalid (format rate
-  38.4%) and answer F1 falls from 14.6 to 5.8; on PubMedQA the format rate falls from
-  88.8% to 55.0% and accuracy from 39.4% to 32.2%.
-* **Its reward is lower than the zero-shot model's** (26.0% of the maximum on SQuAD v2
-  with distractors, against 35.7%), so prompting alone does not close the gap that
-  training is meant to address. The SQuAD files were generated with batch size 8 and
-  the transfer files with batch size 2, as for the zero-shot run.
+Few-shot, 3 demonstrations: 2 answerable, 1 abstention (`results/eval/few_shot_qwen0.5b/`):
 
-### Ablations
+* **The gain comes from abstaining, not from answering better.** With distractors, F1
+  rises from 7.7 to 18.3 while accuracy on unanswerable questions goes from 0.2% to
+  16.6%; chunk F1 falls from 28.5 to 15.1 and evidence recall from 28.8% to 22.2%.
+* **Abstention is overused once shown.** With the gold paragraph alone, the model
+  answers 21.8% of the questions. Overall F1 is 43.2 on this balanced set while F1 on
+  answerable questions is 12.8, half the zero-shot value; the overall score alone would
+  hide this.
+* **The format is still unreliable**: 351 invalid outputs of 1,000 with distractors (297
+  unterminated), and 44.6% of valid outputs on HotpotQA.
+* **Transfer is mixed**: HotpotQA answer F1 is unchanged (6.8 against 6.9, difference
+  0.0 [−2.1, +2.0]) with lower chunk F1; PubMedQA accuracy rises from 25.2% to 37.0%.
+* **Its reward (27.4% of the maximum) is also below that of always abstaining.**
 
-One seed each, same protocol as the main 0.5B run.
+Supervised fine-tuning, one seed, 250 steps (`results/eval/sft_qwen0.5b_seed0/`,
+training log in `results/sft/sft_qwen0.5b/seed0/`):
 
-| Configuration | Change | SQuAD v2 (distractors) F1 | Unverified quotes | Chunk F1 |
-|---|---|---:|---:|---:|
-| `grpo_qwen0.5b` | full reward suite | TBD (run pending) | TBD (run pending) | TBD (run pending) |
-| `ablation_no_answer_correctness` | weight 2.0 → 0 | TBD (run pending) | TBD (run pending) | TBD (run pending) |
-| `ablation_no_quote_grounding` | weight 1.5 → 0 | TBD (run pending) | TBD (run pending) | TBD (run pending) |
-| `ablation_no_chunk_routing` | weight 1.0 → 0 | TBD (run pending) | TBD (run pending) | TBD (run pending) |
-| `ablation_no_answer_faithfulness` | weight 0.5 → 0 | TBD (run pending) | TBD (run pending) | TBD (run pending) |
-| `ablation_kl_beta` | β 0 → 0.04 | TBD (run pending) | TBD (run pending) | TBD (run pending) |
-| `ablation_dr_grpo` | Dr. GRPO objective | TBD (run pending) | TBD (run pending) | TBD (run pending) |
+* **The format is learned**: 1 invalid output of 1,000 with distractors, one quote per
+  answer on every dataset.
+* **Quotes are verbatim on the training distribution**: 0.8% not found in the context
+  with distractors and 3.0% with the gold paragraph alone. On HotpotQA the rate is 10.9%.
+* **Deciding whether to answer is the weak point.** With distractors the model abstains
+  on 146 of the 500 answerable questions and answers 153 of the 500 unanswerable ones
+  (abstention precision 70.4%, recall 69.4%). On the 353 answerable questions it does
+  answer, F1 is 71.5 and EM 60.9.
+* **Transfer to HotpotQA is partial**: answer F1 rises from 6.9 to 25.5, but the model
+  gives one quote where two paragraphs are needed, so supporting-fact EM is 0.0 and
+  joint F1 5.1.
+* **Transfer to PubMedQA is negative**: accuracy falls to 16.8%, below both prompting
+  baselines. Trained on short extractive answers, the model abstains on 136 questions
+  and otherwise mostly answers with a span instead of yes or no; 441 of its 500
+  predictions are mapped to "maybe".
+* **It obtains 66.6% of the maximum reward** on SQuAD v2 with distractors, against 23.6%
+  zero-shot. This is the level a GRPO run would have to exceed, and the margin it would
+  have to work with.
 
-Training curves (`results/grpo/<run>/training_curves.png`) and the qualitative error
-analysis (before/after examples, including regressions) will be added with the runs.
+### Decoding sensitivity
+
+The runs above use a repetition penalty of 1.0. The first evaluations of this project
+inherited 1.1 from the model's generation config without recording it. Both settings on
+SQuAD v2 with distractors (percentages):
+
+| Run | Repetition penalty | Format ↑ | F1 ↑ | HasAns F1 ↑ | NoAns acc. ↑ | Answer rate | Unverified quotes ↓ | Chunk F1 ↑ |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| `zero_shot_qwen0.5b` | 1.0 | 58.6 | 7.7 | 15.3 | 0.2 | 58.3 | 20.5 | 28.5 |
+| `zero_shot_qwen0.5b` | 1.1 | 94.0 | 14.2 | 26.6 | 1.8 | 93.3 | 26.4 | 46.3 |
+| `few_shot_qwen0.5b` | 1.0 | 64.9 | 18.3 | 20.0 | 16.6 | 51.4 | 16.3 | 15.1 |
+| `few_shot_qwen0.5b` | 1.1 | 62.2 | 17.7 | 18.3 | 17.0 | 48.5 | 20.7 | 14.4 |
+| `sft_qwen0.5b_seed0` | 1.0 | 99.9 | 59.9 | 50.4 | 69.4 | 50.6 | 0.8 | 67.8 |
+| `sft_qwen0.5b_seed0` | 1.1 | 100.0 | 50.4 | 0.8 | 100.0 | 0.5 | 0.0 | 1.0 |
+
+Sources: `results/eval/` (1.0) and `results/repetition_penalty_1.1/eval/` (1.1); the
+provenance of the second set is described in
+[results/repetition_penalty_1.1/README.md](results/repetition_penalty_1.1/README.md).
+
+* **With the penalty, the fine-tuned model abstains on 995 of 1,000 questions.** A
+  repetition penalty lowers the score of every token already present in the prompt,
+  which works against copying a quote from the context. Its overall F1 of 50.4 is then
+  the score of always abstaining on a balanced set.
+* **The same penalty helps the base model**: fewer outputs run into the token limit (60
+  invalid outputs instead of 414, 57 and 382 of them unterminated), and F1 is 14.2
+  instead of 7.7. The few-shot results change little.
+* **The gap between the fine-tuned model and the zero-shot model therefore depends on a
+  decoding default**: +52.2 points of F1 at 1.0, +36.2 at 1.1 (50.4 against 14.2), with
+  a fine-tuned model that is useless in the second case. The zero-shot baseline is
+  not shown at its better decoding setting in the main tables.
+* The penalty is now a parameter of the evaluation configuration, set to 1.0 and
+  written to each result file.
+
+### Not run
+
+The following experiments have code and configurations but no result. No number is
+reported for them.
+
+| Experiment | Configuration | Reason |
+|---|---|---|
+| GRPO, Qwen2.5-0.5B, 3 seeds | `configs/grounded/grpo_qwen0.5b.yaml` | too slow on the Apple M4 used for the other runs (a 3-step pilot only, outputs not kept); no GPU run was made |
+| Six ablations (each reward term removed, KL penalty, Dr. GRPO objective) | `configs/grounded/ablation_*.yaml` | depend on the main GRPO run |
+| SFT and GRPO, Qwen2.5-1.5B; zero-shot and few-shot 1.5B | `configs/grounded/*_qwen1.5b.yaml` | not run |
+| SFT seeds 1 and 2 | `configs/grounded/sft_qwen0.5b.yaml` | 2 h 47 min per seed on the Apple M4; one seed was run |
+| Zero-shot Qwen2.5-7B reference | `--backend openai` of `evaluate.py` | not run |
+
+The GRPO code path was exercised only by the 3-step pilot and by the configuration
+tests. The learning rate and the reward weights of the GRPO configurations are
+untested. The main run would be started with
+`python scripts/grounded/train_grpo.py --config configs/grounded/grpo_qwen0.5b.yaml --seed 0`.
 
 ### Reward shortcuts
 
@@ -357,7 +421,15 @@ The same policies are asserted to stay below 50% of the maximum in
 
 ## Limitations and threats to validity
 
-* **No trained model yet.** The repository currently supports no claim about GRPO.
+* **No GRPO result.** The repository supports no claim about reinforcement learning
+  with these rewards; it only establishes what the rewards can be gamed by and where the
+  baselines stand.
+* **One training seed.** The SFT baseline was trained once. Its intervals cover the
+  evaluation examples, not the variance between training runs, and its hyperparameters
+  (250 steps, learning rate 1e-4) were not tuned.
+* **Decoding setting.** Results depend strongly on the repetition penalty (see
+  Decoding sensitivity). The main tables use 1.0 for every run, which disadvantages the
+  zero-shot baseline; no decoding setting was tuned per model.
 * **Exact-match verification is narrow.** It certifies that a quote exists in the
   context, not that it supports the answer. A model can quote a true but irrelevant
   sentence and give a wrong answer; this shows up in F1 and evidence recall, not in the
@@ -368,7 +440,9 @@ The same policies are asserted to stay below 50% of the maximum in
 * **Generative JSON output.** A formatting error counts as a wrong answer, so EM/F1
   mix reading ability and format compliance. `format_rate` is reported to separate them.
   Outputs are cut at 256 new tokens, which penalises a model that quotes at length (see
-  the few-shot observations); the limit was not tuned.
+  the zero-shot observations); the limit was not tuned.
+* **PubMedQA label mapping.** An answer that starts with neither yes nor no is counted
+  as "maybe", which penalises a model trained to give short extractive answers.
 * **Few-shot baseline is a single configuration.** Three fixed demonstrations with
   two-chunk contexts were chosen a priori; other demonstrations or counts were not tried.
 * **Distractor noise.** For unanswerable questions, a same-article distractor may
@@ -378,33 +452,62 @@ The same policies are asserted to stay below 50% of the maximum in
 * **Possible pretraining exposure.** SQuAD, HotpotQA and PubMedQA are public and may
   be in the pretraining data of Qwen2.5; this affects all rows equally but limits what
   absolute numbers mean.
-* **Untuned hyperparameters.** Reward weights, shaping constants and the learning rate
-  were set a priori, not tuned; the ablations measure sensitivity to the weights only.
+* **Untuned reward design.** Reward weights and shaping constants were set a priori and
+  never used in a training run.
 * **Single task for training.** Training uses SQuAD v2 only; the transfer sets test
   generalisation but the study does not cover long documents or retrieval errors.
+* **Hardware-specific training settings.** The SFT run used a batch of 1 with 16
+  accumulation steps and two MPS memory environment variables that are not recorded in
+  `run.json` (see Reproduce).
 
 ## Reproduce
 
-All commands, hardware requirements and durations are in [RUNBOOK.md](RUNBOOK.md).
+Python 3.10 or later. The pinned versions (`requirements-grounded.txt`: TRL 0.29.1,
+transformers 5.18.0, torch 2.14.1, peft 0.21.2, datasets 5.0.1) are not compatible with
+the upstream package, which pins `trl==0.18.0`; the scripts below do not need the
+package to be installed. Models and datasets are downloaded from the Hugging Face Hub
+on first use; no paid API is used.
 
 ```bash
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements-grounded.txt
-make grounded-test                                    # 163 tests, CPU, < 1 s
-python scripts/grounded/reward_hacking_report.py      # CPU, 10 s
+make grounded-test                                    # 164 tests, CPU, < 1 s
+python scripts/grounded/reward_hacking_report.py      # CPU, 10 s -> results/reward_hacking.{json,md}
+
+# Baselines (add --few_shot for the 3-shot run)
 python scripts/grounded/evaluate.py --run_name zero_shot_qwen0.5b --model Qwen/Qwen2.5-0.5B-Instruct
-python scripts/grounded/train_grpo.py --config configs/grounded/grpo_qwen0.5b.yaml --seed 0
+
+# Supervised baseline and its evaluation
+python scripts/grounded/train_sft.py --config configs/grounded/sft_qwen0.5b.yaml --seed 0
+python scripts/grounded/evaluate.py --run_name sft_qwen0.5b_seed0 \
+    --model Qwen/Qwen2.5-0.5B-Instruct --adapter data/sft_qwen0.5b/seed0
+
+# Tables and paired tests
 python scripts/grounded/make_tables.py
+python scripts/grounded/compare.py --a zero_shot_qwen0.5b --b sft_qwen0.5b_seed0
 ```
 
-The full plan (3 seeds, 6 ablations, 1.5B run) is about 30 GPU-hours on a 24 GB card
-(estimate, see the RUNBOOK). The 0.5B evaluation runs on a 16 GB laptop; GRPO training
-does not in practice (130-195 s per step measured on an Apple M4), and
-[notebooks/grounded_r1_gpu_run.ipynb](notebooks/grounded_r1_gpu_run.ipynb) runs it on a free T4.
+Each script writes its outputs under `results/` with the configuration, seed, git SHA,
+library versions and hardware. Adapters are written to `data/`, which is not committed.
+
+The committed runs were made on an Apple M4 with 16 GB, with these options (recorded in
+the `command` field of each result file):
+
+* evaluation: `--datasets squad_v2_distractors squad_v2 --set generation.batch_size=8`,
+  then `--datasets hotpotqa pubmedqa --set generation.batch_size=2`;
+* SFT: `--set model.dtype=float32 sft.bf16=false sft.per_device_train_batch_size=1 sft.gradient_accumulation_steps=16`
+  (the same effective batch of 16 as the configuration, which does not fit in 16 GB),
+  with `PYTORCH_MPS_HIGH_WATERMARK_RATIO=1.3 PYTORCH_MPS_LOW_WATERMARK_RATIO=1.0` in
+  the environment.
+
+Measured durations on that machine: 97 and 108 minutes of generation for the zero-shot
+and few-shot evaluations, 2 h 47 min for the SFT run and 43 minutes for its evaluation
+(`generation_seconds` and `train_runtime_seconds` in the result files).
 
 ## Repository structure
 
 ```
-src/open_r1/grounded/      package of this fork (standard library only for rewards, data, metrics)
+src/open_r1/grounded/      package of this project (standard library only for rewards, data, metrics)
   parsing.py               JSON extraction and typed validation of model outputs
   rewards.py               reward suite and RewardSettings
   data.py                  SQuAD v2 / HotpotQA / PubMedQA conversion and deterministic sub-sampling
@@ -417,9 +520,9 @@ src/open_r1/grounded/      package of this fork (standard library only for rewar
 scripts/grounded/          train_grpo.py, train_sft.py, evaluate.py, make_tables.py, compare.py,
                            plot_training.py, reward_hacking_report.py
 configs/grounded/          one YAML per experiment (main runs, SFT baselines, ablations, evaluation)
-tests/grounded/            163 tests: parser fuzzing, rewards, reward shortcuts, data, metrics, configs
-results/                   committed raw results, per-example predictions and generated tables
-notebooks/                 Kaggle / Colab notebook that runs the main GRPO configuration on a T4
+tests/grounded/            164 tests: parser fuzzing, rewards, reward shortcuts, data, metrics, configs
+results/                   committed raw results, per-example predictions, generated tables, paired tests,
+                           SFT training log, and the earlier runs with a repetition penalty of 1.1
 docs/upstream_README.md    README of huggingface/open-r1
 src/open_r1/*.py, recipes/, slurm/, scripts/*.py   upstream open-r1, unchanged
 ```
