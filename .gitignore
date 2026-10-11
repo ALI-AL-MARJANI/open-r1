@@ -181,3 +181,7 @@ eval_results/
 
 # Grounded-R1: results/ is committed (raw metrics, logs, figures); model checkpoints go to data/
 !results/
+
+# Local working notes and an unexecuted notebook, not part of the published repository
+RUNBOOK.md
+notebooks/
