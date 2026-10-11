@@ -78,6 +78,7 @@ class HFGenerator:
             "batch_size": batch_size,
             "max_new_tokens": max_new_tokens,
             "decoding": "greedy",
+            "repetition_penalty": 1.0,
         }
 
     def generate(self, conversations: list[Messages]) -> list[str]:
@@ -103,6 +104,9 @@ class HFGenerator:
                     temperature=None,
                     top_p=None,
                     top_k=None,
+                    # Qwen's generation_config.json sets repetition_penalty=1.1, which
+                    # penalises copying the context and is still applied when do_sample=False.
+                    repetition_penalty=1.0,
                     pad_token_id=self.tokenizer.pad_token_id,
                 )
             completions = generated[:, batch["input_ids"].shape[1] :]
