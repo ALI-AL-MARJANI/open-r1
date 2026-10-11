@@ -35,7 +35,7 @@ before committing to a full run, and update this table.
 | Reward-hacking report | 10 s (measured, CPU) | same | same |
 | Evaluation, 0.5B, 4 datasets (3,000 examples) | zero-shot: 65 and 82 min generation time on two runs (measured; the committed run took 35 + 9 + 23 + 16 min); few-shot: 113 min (measured, 31 + 21 + 35 + 27 min) | ~15 min (estimate) | ~10 min (estimate) |
 | Evaluation, 1.5B, 4 datasets | ~3x the 0.5B time (estimate) | ~30 min (estimate) | ~20 min (estimate) |
-| SFT 0.5B, 250 steps | ~30 min (estimate) | ~10 min (estimate) | ~5 min (estimate) |
+| SFT 0.5B, 250 steps | 2 h 47 min (measured, batch 1 x 16, about 40 s per step, up to 6.5 GB of swap in use) | ~10 min (estimate) | ~5 min (estimate) |
 | GRPO 0.5B, 500 steps | not practical: 130-195 s per step measured on a 3-step pilot, with 8 GB of swap in use (about one day for 500 steps) | ~4-6 h (estimate) | ~2-3 h (estimate) |
 | GRPO 1.5B, 300 steps | not recommended | ~8-12 h, memory-tight (estimate, untested) | ~4-6 h (estimate) |
 
@@ -54,7 +54,7 @@ Overrides for specific hardware (append to any training command):
 
 # Apple Silicon (MPS): float32, no mixed precision
 --set model.dtype=float32 grpo.bf16=false                         # train_grpo.py
---set model.dtype=float32 sft.bf16=false                          # train_sft.py
+--set model.dtype=float32 sft.bf16=false                          # train_sft.py (16 GB: see section 3)
 
 # Less GPU memory: 4 sequences per backward pass instead of 8 (same 32 completions per step)
 --set grpo.per_device_train_batch_size=4 grpo.gradient_accumulation_steps=8 grpo.gradient_checkpointing=true
@@ -116,11 +116,20 @@ Adapters are written to `data/` (not committed); logs and provenance to
 interrupted run continues with `--resume` (same command and overrides).
 
 On a 16 GB Apple Silicon machine the configured batch of 8 sequences does not fit
-(MPS out of memory on the first step). Use the same effective batch of 16 as 2 x 8:
+(MPS out of memory on the first step). A batch of 2 x 8 starts but does not hold: the
+process reached 18 GB after 14 steps and the step time rose from 37 s to about 65 s;
+with the MPS allocation capped at 10.67 GiB it ran out of memory on the third step.
+Use the same effective batch of 16 as 1 x 16, with the MPS allocation capped so that
+the run fails instead of swapping without bound:
 
 ```bash
---set model.dtype=float32 sft.bf16=false sft.per_device_train_batch_size=2 sft.gradient_accumulation_steps=8
+PYTORCH_MPS_HIGH_WATERMARK_RATIO=1.3 PYTORCH_MPS_LOW_WATERMARK_RATIO=1.0 \
+python scripts/grounded/train_sft.py --config configs/grounded/sft_qwen0.5b.yaml --seed 0 \
+    --set model.dtype=float32 sft.bf16=false sft.per_device_train_batch_size=1 sft.gradient_accumulation_steps=16
 ```
+
+Seed 0 was trained this way on the M4 (250 steps in 2 h 47 min). The two environment
+variables are not recorded in `run.json`.
 
 ## 4. GRPO
 
