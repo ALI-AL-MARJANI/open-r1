@@ -1,0 +1,202 @@
+{
+  "run_name": "sft_qwen0.5b_seed0",
+  "dataset": "squad_v2_distractors",
+  "dataset_spec": {
+    "dataset": "squad_v2",
+    "split": "validation",
+    "n_examples": 1000,
+    "answerable_fraction": 0.5,
+    "n_distractors": 3,
+    "subset_seed": 0
+  },
+  "is_smoke_test": false,
+  "few_shot": false,
+  "n_demonstrations": 0,
+  "generator": {
+    "backend": "hf",
+    "model": "Qwen/Qwen2.5-0.5B-Instruct",
+    "adapter": "data/sft_qwen0.5b/seed0",
+    "dtype": "torch.float16",
+    "device": "mps",
+    "batch_size": 8,
+    "max_new_tokens": 256,
+    "decoding": "greedy",
+    "repetition_penalty": 1.0
+  },
+  "metrics": {
+    "format_rate": {
+      "value": 0.999,
+      "ci_low": 0.997,
+      "ci_high": 1.0
+    },
+    "em": {
+      "value": 0.562,
+      "ci_low": 0.533,
+      "ci_high": 0.593
+    },
+    "f1": {
+      "value": 0.5992494946367701,
+      "ci_low": 0.570197011914814,
+      "ci_high": 0.6303633314793222
+    },
+    "has_ans_em": {
+      "value": 0.43,
+      "ci_low": 0.38784067085953877,
+      "ci_high": 0.47474747474747475
+    },
+    "has_ans_f1": {
+      "value": 0.5044989892735403,
+      "ci_low": 0.4665848591926016,
+      "ci_high": 0.547477313266787
+    },
+    "no_ans_em": {
+      "value": 0.694,
+      "ci_low": 0.6532258064516129,
+      "ci_high": 0.7322834645669292
+    },
+    "answer_rate": {
+      "value": 0.506,
+      "ci_low": 0.477,
+      "ci_high": 0.539
+    },
+    "unverified_quote_rate": {
+      "value": 0.007905138339920948,
+      "ci_low": 0.0018975332068311196,
+      "ci_high": 0.015717092337917484
+    },
+    "answers_with_unverified_quote": {
+      "value": 0.007905138339920948,
+      "ci_low": 0.0018975332068311196,
+      "ci_high": 0.015717092337917484
+    },
+    "evidence_recall": {
+      "value": 0.548,
+      "ci_low": 0.5073375262054507,
+      "ci_high": 0.5892116182572614
+    },
+    "chunk_precision": {
+      "value": 0.678,
+      "ci_low": 0.6402321083172147,
+      "ci_high": 0.7190775681341719
+    },
+    "chunk_recall": {
+      "value": 0.678,
+      "ci_low": 0.6402321083172147,
+      "ci_high": 0.7190775681341719
+    },
+    "chunk_f1": {
+      "value": 0.678,
+      "ci_low": 0.6402321083172147,
+      "ci_high": 0.7190775681341719
+    },
+    "abstention_precision": {
+      "value": 0.7038539553752535,
+      "ci_low": 0.6626506024096386,
+      "ci_high": 0.7425149700598802
+    },
+    "abstention_recall": {
+      "value": 0.694,
+      "ci_low": 0.6532258064516129,
+      "ci_high": 0.7322834645669292
+    },
+    "abstention_f1": {
+      "value": 0.6988922457200402,
+      "ci_low": 0.6631689401888773,
+      "ci_high": 0.7296482412060301
+    },
+    "reward_fraction": {
+      "value": 0.6662478343943653,
+      "ci_low": 0.6424516834126829,
+      "ci_high": 0.6910046387547111
+    }
+  },
+  "confidence_interval": "95% percentile bootstrap over examples",
+  "bootstrap_resamples": 1000,
+  "generation_seconds": 758.9,
+  "seconds_per_example": 0.759,
+  "config": {
+    "seed": 0,
+    "bootstrap_resamples": 1000,
+    "datasets": {
+      "squad_v2_distractors": {
+        "dataset": "squad_v2",
+        "split": "validation",
+        "n_examples": 1000,
+        "answerable_fraction": 0.5,
+        "n_distractors": 3
+      },
+      "squad_v2": {
+        "dataset": "squad_v2",
+        "split": "validation",
+        "n_examples": 1000,
+        "answerable_fraction": 0.5,
+        "n_distractors": 0
+      },
+      "hotpotqa": {
+        "dataset": "hotpotqa",
+        "split": "validation",
+        "n_examples": 500
+      },
+      "pubmedqa": {
+        "dataset": "pubmedqa",
+        "split": "train",
+        "n_examples": 500
+      }
+    },
+    "generation": {
+      "max_new_tokens": 256,
+      "batch_size": 8,
+      "dtype": "auto"
+    },
+    "few_shot": {
+      "n_answerable": 2,
+      "n_unanswerable": 1,
+      "n_distractors": 1,
+      "max_context_words": 120,
+      "seed": 0
+    },
+    "rewards": {
+      "weights": {
+        "format": 0.5,
+        "answer_correctness": 2.0,
+        "quote_grounding": 1.5,
+        "chunk_routing": 1.0,
+        "answer_faithfulness": 0.5
+      },
+      "settings": {
+        "quote_min_words": 3,
+        "quote_full_credit_words": 50,
+        "quote_zero_credit_words": 100,
+        "max_quotes": 3,
+        "max_extra_chars": 0,
+        "answer_copy_ratio": 0.8,
+        "answer_copy_cap": 0.5
+      }
+    },
+    "config_path": "configs/grounded/eval.yaml"
+  },
+  "environment": {
+    "date_utc": "2026-10-11T07:31:24+00:00",
+    "git_sha": "7e41e3c41cc4d0524732383b095331ab2ee0c359",
+    "git_dirty": false,
+    "python": "3.11.15",
+    "packages": {
+      "torch": "2.14.1",
+      "transformers": "5.18.0",
+      "trl": "0.29.1",
+      "peft": "0.21.2",
+      "datasets": "5.0.1",
+      "accelerate": "1.15.0",
+      "vllm": null,
+      "openai": null
+    },
+    "hardware": {
+      "platform": "macOS-15.6.1-arm64-arm-64bit",
+      "machine": "arm64",
+      "cpu_count": 10,
+      "ram_gb": 17.2,
+      "accelerator": "mps"
+    },
+    "command": "scripts/grounded/evaluate.py --run_name sft_qwen0.5b_seed0 --model Qwen/Qwen2.5-0.5B-Instruct --adapter data/sft_qwen0.5b/seed0 --datasets squad_v2_distractors squad_v2 --set generation.batch_size=8"
+  }
+}

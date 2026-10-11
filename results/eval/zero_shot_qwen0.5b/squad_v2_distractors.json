@@ -20,99 +20,100 @@
     "device": "mps",
     "batch_size": 8,
     "max_new_tokens": 256,
-    "decoding": "greedy"
+    "decoding": "greedy",
+    "repetition_penalty": 1.0
   },
   "metrics": {
     "format_rate": {
-      "value": 0.94,
-      "ci_low": 0.925,
-      "ci_high": 0.955
+      "value": 0.586,
+      "ci_low": 0.553,
+      "ci_high": 0.616
     },
     "em": {
-      "value": 0.039,
-      "ci_low": 0.027,
-      "ci_high": 0.051
+      "value": 0.007,
+      "ci_low": 0.002,
+      "ci_high": 0.013
     },
     "f1": {
-      "value": 0.14212539850804928,
-      "ci_low": 0.12728397717742285,
-      "ci_high": 0.15865889220504964
+      "value": 0.07738284040854798,
+      "ci_low": 0.06706264634987048,
+      "ci_high": 0.0889622063715831
     },
     "has_ans_em": {
-      "value": 0.06,
-      "ci_low": 0.04032258064516129,
-      "ci_high": 0.082
+      "value": 0.012,
+      "ci_low": 0.003875968992248062,
+      "ci_high": 0.022540983606557378
     },
     "has_ans_f1": {
-      "value": 0.26625079701609855,
-      "ci_low": 0.24263933655550607,
-      "ci_high": 0.29039401811030696
+      "value": 0.15276568081709596,
+      "ci_low": 0.13311058520834818,
+      "ci_high": 0.17300478949548456
     },
     "no_ans_em": {
-      "value": 0.018,
-      "ci_low": 0.007707129094412331,
-      "ci_high": 0.02976190476190476
+      "value": 0.002,
+      "ci_low": 0.0,
+      "ci_high": 0.006224066390041493
     },
     "answer_rate": {
-      "value": 0.933,
-      "ci_low": 0.918,
-      "ci_high": 0.949
+      "value": 0.583,
+      "ci_low": 0.551,
+      "ci_high": 0.613
     },
     "unverified_quote_rate": {
-      "value": 0.2636127917026793,
-      "ci_low": 0.234737747205503,
-      "ci_high": 0.29156223893065997
+      "value": 0.2051536174430129,
+      "ci_low": 0.1722689075630252,
+      "ci_high": 0.23581213307240703
     },
     "answers_with_unverified_quote": {
-      "value": 0.28188638799571275,
-      "ci_low": 0.25268817204301075,
-      "ci_high": 0.3110871905274489
+      "value": 0.2607204116638079,
+      "ci_low": 0.22448979591836735,
+      "ci_high": 0.29577464788732394
     },
     "evidence_recall": {
-      "value": 0.296,
-      "ci_low": 0.25614754098360654,
-      "ci_high": 0.3340122199592668
+      "value": 0.288,
+      "ci_low": 0.25,
+      "ci_high": 0.32276119402985076
     },
     "chunk_precision": {
-      "value": 0.44933333333333336,
-      "ci_low": 0.41120218579234974,
-      "ci_high": 0.4903718459495354
+      "value": 0.25816666666666666,
+      "ci_low": 0.2251962883654532,
+      "ci_high": 0.2912508316699933
     },
     "chunk_recall": {
-      "value": 0.502,
-      "ci_low": 0.46184738955823296,
-      "ci_high": 0.5458422174840085
+      "value": 0.36,
+      "ci_low": 0.31906614785992216,
+      "ci_high": 0.400390625
     },
     "chunk_f1": {
-      "value": 0.4631333333333333,
-      "ci_low": 0.42500000000000004,
-      "ci_high": 0.5057448229792919
+      "value": 0.284866666666667,
+      "ci_low": 0.2511597084161699,
+      "ci_high": 0.3189283228949201
     },
     "abstention_precision": {
-      "value": 0.7142857142857143,
-      "ci_low": 0.3333333333333333,
+      "value": 0.3333333333333333,
+      "ci_low": 0.0,
       "ci_high": 1.0
     },
     "abstention_recall": {
-      "value": 0.01,
-      "ci_low": 0.001996007984031936,
-      "ci_high": 0.019646365422396856
+      "value": 0.002,
+      "ci_low": 0.0,
+      "ci_high": 0.006224066390041493
     },
     "abstention_f1": {
-      "value": 0.01972386587771203,
-      "ci_low": 0.003976143141153081,
-      "ci_high": 0.038387715930902115
+      "value": 0.003976143141153082,
+      "ci_low": 0.0,
+      "ci_high": 0.012320328542094456
     },
     "reward_fraction": {
-      "value": 0.35691855420163043,
-      "ci_low": 0.34166770160576276,
-      "ci_high": 0.37279742751847356
+      "value": 0.23557823135488606,
+      "ci_low": 0.21827162375267825,
+      "ci_high": 0.25223799004068864
     }
   },
   "confidence_interval": "95% percentile bootstrap over examples",
   "bootstrap_resamples": 1000,
-  "generation_seconds": 2087.0,
-  "seconds_per_example": 2.087,
+  "generation_seconds": 1541.9,
+  "seconds_per_example": 1.542,
   "config": {
     "seed": 0,
     "bootstrap_resamples": 1000,
@@ -175,8 +176,8 @@
     "config_path": "configs/grounded/eval.yaml"
   },
   "environment": {
-    "date_utc": "2026-10-05T06:21:11+00:00",
-    "git_sha": "d37267ccec3b96d50bab0e1b834a1a1e2b68435a",
+    "date_utc": "2026-10-11T08:28:08+00:00",
+    "git_sha": "7e41e3c41cc4d0524732383b095331ab2ee0c359",
     "git_dirty": false,
     "python": "3.11.15",
     "packages": {

@@ -18,33 +18,34 @@
     "device": "mps",
     "batch_size": 2,
     "max_new_tokens": 256,
-    "decoding": "greedy"
+    "decoding": "greedy",
+    "repetition_penalty": 1.0
   },
   "metrics": {
     "format_rate": {
-      "value": 0.888,
-      "ci_low": 0.858,
-      "ci_high": 0.914
+      "value": 0.57,
+      "ci_low": 0.526,
+      "ci_high": 0.614
     },
     "em": {
-      "value": 0.394,
-      "ci_low": 0.35,
-      "ci_high": 0.434
+      "value": 0.252,
+      "ci_low": 0.21,
+      "ci_high": 0.29
     },
     "f1": {
-      "value": 0.394,
-      "ci_low": 0.35,
-      "ci_high": 0.434
+      "value": 0.252,
+      "ci_low": 0.21,
+      "ci_high": 0.29
     },
     "has_ans_em": {
-      "value": 0.394,
-      "ci_low": 0.35,
-      "ci_high": 0.434
+      "value": 0.252,
+      "ci_low": 0.21,
+      "ci_high": 0.29
     },
     "has_ans_f1": {
-      "value": 0.394,
-      "ci_low": 0.35,
-      "ci_high": 0.434
+      "value": 0.252,
+      "ci_low": 0.21,
+      "ci_high": 0.29
     },
     "no_ans_em": {
       "value": null,
@@ -52,60 +53,60 @@
       "ci_high": null
     },
     "answer_rate": {
-      "value": 0.888,
-      "ci_low": 0.858,
-      "ci_high": 0.914
+      "value": 0.57,
+      "ci_low": 0.526,
+      "ci_high": 0.614
     },
     "unverified_quote_rate": {
-      "value": 0.1523809523809524,
-      "ci_low": 0.11570247933884298,
-      "ci_high": 0.19682539682539682
+      "value": 0.0455531453362256,
+      "ci_low": 0.024390243902439025,
+      "ci_high": 0.07407407407407407
     },
     "answers_with_unverified_quote": {
-      "value": 0.14414414414414414,
-      "ci_low": 0.11512415349887133,
-      "ci_high": 0.17782909930715934
+      "value": 0.056140350877192984,
+      "ci_low": 0.0313588850174216,
+      "ci_high": 0.0859106529209622
     },
     "evidence_recall": {
-      "value": 0.008,
-      "ci_low": 0.002,
-      "ci_high": 0.016
+      "value": 0.02,
+      "ci_low": 0.008,
+      "ci_high": 0.032
     },
     "chunk_precision": {
-      "value": 0.7046666666666668,
-      "ci_low": 0.6629999999999999,
-      "ci_high": 0.7396666666666667
+      "value": 0.46149999999999997,
+      "ci_low": 0.4166666666666665,
+      "ci_high": 0.5026666666666666
     },
     "chunk_recall": {
-      "value": 0.31308888888888875,
-      "ci_low": 0.28945238095238074,
-      "ci_high": 0.3358428571428576
+      "value": 0.25144126984126947,
+      "ci_low": 0.22318253968253945,
+      "ci_high": 0.28081904761904736
     },
     "chunk_f1": {
-      "value": 0.4109603174603179,
-      "ci_low": 0.3837666666666669,
-      "ci_high": 0.4349111111111114
+      "value": 0.30471587301587333,
+      "ci_low": 0.2738809523809524,
+      "ci_high": 0.33606825396825424
     },
     "reward_fraction": {
-      "value": 0.49077956670228545,
-      "ci_low": 0.4665664500026048,
-      "ci_high": 0.5143985017915395
+      "value": 0.2872001955201246,
+      "ci_low": 0.26387905508369536,
+      "ci_high": 0.3098089992394033
     },
     "accuracy": {
-      "value": 0.394,
-      "ci_low": 0.35,
-      "ci_high": 0.434
+      "value": 0.252,
+      "ci_low": 0.21,
+      "ci_high": 0.29
     },
     "macro_f1": {
-      "value": 0.25869520477464497,
-      "ci_low": 0.22802853711944623,
-      "ci_high": 0.28767013318737455
+      "value": 0.1958891867739053,
+      "ci_low": 0.16628873771730915,
+      "ci_high": 0.22165636838642108
     }
   },
   "confidence_interval": "95% percentile bootstrap over examples",
   "bootstrap_resamples": 1000,
-  "generation_seconds": 939.1,
-  "seconds_per_example": 1.878,
+  "generation_seconds": 1278.0,
+  "seconds_per_example": 2.556,
   "config": {
     "seed": 0,
     "bootstrap_resamples": 1000,
@@ -168,8 +169,8 @@
     "config_path": "configs/grounded/eval.yaml"
   },
   "environment": {
-    "date_utc": "2026-10-05T07:08:48+00:00",
-    "git_sha": "d37267ccec3b96d50bab0e1b834a1a1e2b68435a",
+    "date_utc": "2026-10-11T09:39:52+00:00",
+    "git_sha": "7e41e3c41cc4d0524732383b095331ab2ee0c359",
     "git_dirty": false,
     "python": "3.11.15",
     "packages": {

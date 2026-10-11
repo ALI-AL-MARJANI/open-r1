@@ -1,0 +1,86 @@
+{
+  "run_a": "few_shot_qwen0.5b",
+  "run_b": "sft_qwen0.5b_seed0",
+  "dataset": "squad_v2",
+  "test": "paired bootstrap over examples, percentile interval, two-sided p-value",
+  "results": [
+    {
+      "metric": "f1",
+      "difference": 0.18484647633368478,
+      "ci_low": 0.14781427380804374,
+      "ci_high": 0.22233970219835353,
+      "p_value": 0.0,
+      "n_examples": 1000,
+      "n_resamples": 10000
+    },
+    {
+      "metric": "has_ans_f1",
+      "difference": 0.4416929526673695,
+      "ci_low": 0.39458109109086603,
+      "ci_high": 0.4864255313505994,
+      "p_value": 0.0,
+      "n_examples": 1000,
+      "n_resamples": 10000
+    },
+    {
+      "metric": "no_ans_em",
+      "difference": -0.07199999999999995,
+      "ci_low": -0.12375249500998009,
+      "ci_high": -0.02075471698113207,
+      "p_value": 0.0084,
+      "n_examples": 1000,
+      "n_resamples": 10000
+    },
+    {
+      "metric": "unverified_quote_rate",
+      "difference": -0.03869318664772383,
+      "ci_low": -0.07667307857942637,
+      "ci_high": -0.0043763927496611454,
+      "p_value": 0.025,
+      "n_examples": 1000,
+      "n_resamples": 10000
+    },
+    {
+      "metric": "evidence_recall",
+      "difference": 0.43599999999999994,
+      "ci_low": 0.38576779026217234,
+      "ci_high": 0.486,
+      "p_value": 0.0,
+      "n_examples": 1000,
+      "n_resamples": 10000
+    },
+    {
+      "metric": "chunk_f1",
+      "difference": 0.5429999999999999,
+      "ci_low": 0.49546044098573266,
+      "ci_high": 0.5898989898989899,
+      "p_value": 0.0,
+      "n_examples": 1000,
+      "n_resamples": 10000
+    }
+  ],
+  "environment": {
+    "date_utc": "2026-10-11T11:32:46+00:00",
+    "git_sha": "7e41e3c41cc4d0524732383b095331ab2ee0c359",
+    "git_dirty": false,
+    "python": "3.11.15",
+    "packages": {
+      "torch": "2.14.1",
+      "transformers": "5.18.0",
+      "trl": "0.29.1",
+      "peft": "0.21.2",
+      "datasets": "5.0.1",
+      "accelerate": "1.15.0",
+      "vllm": null,
+      "openai": null
+    },
+    "hardware": {
+      "platform": "macOS-15.6.1-arm64-arm-64bit",
+      "machine": "arm64",
+      "cpu_count": 10,
+      "ram_gb": 17.2,
+      "accelerator": "mps"
+    },
+    "command": "scripts/grounded/compare.py --a few_shot_qwen0.5b --b sft_qwen0.5b_seed0 --dataset squad_v2"
+  }
+}

@@ -18,33 +18,34 @@
     "device": "mps",
     "batch_size": 2,
     "max_new_tokens": 256,
-    "decoding": "greedy"
+    "decoding": "greedy",
+    "repetition_penalty": 1.0
   },
   "metrics": {
     "format_rate": {
-      "value": 0.55,
-      "ci_low": 0.504,
-      "ci_high": 0.59
+      "value": 0.65,
+      "ci_low": 0.608,
+      "ci_high": 0.692
     },
     "em": {
-      "value": 0.322,
-      "ci_low": 0.282,
-      "ci_high": 0.364
+      "value": 0.37,
+      "ci_low": 0.324,
+      "ci_high": 0.412
     },
     "f1": {
-      "value": 0.322,
-      "ci_low": 0.282,
-      "ci_high": 0.364
+      "value": 0.37,
+      "ci_low": 0.324,
+      "ci_high": 0.412
     },
     "has_ans_em": {
-      "value": 0.322,
-      "ci_low": 0.282,
-      "ci_high": 0.364
+      "value": 0.37,
+      "ci_low": 0.324,
+      "ci_high": 0.412
     },
     "has_ans_f1": {
-      "value": 0.322,
-      "ci_low": 0.282,
-      "ci_high": 0.364
+      "value": 0.37,
+      "ci_low": 0.324,
+      "ci_high": 0.412
     },
     "no_ans_em": {
       "value": null,
@@ -52,60 +53,60 @@
       "ci_high": null
     },
     "answer_rate": {
-      "value": 0.538,
-      "ci_low": 0.49,
-      "ci_high": 0.578
+      "value": 0.638,
+      "ci_low": 0.596,
+      "ci_high": 0.68
     },
     "unverified_quote_rate": {
-      "value": 0.08374384236453201,
-      "ci_low": 0.06161745827984596,
-      "ci_high": 0.10591133004926108
+      "value": 0.03689064558629776,
+      "ci_low": 0.024265644955300127,
+      "ci_high": 0.05135520684736091
     },
     "answers_with_unverified_quote": {
-      "value": 0.19330855018587362,
-      "ci_low": 0.14652014652014653,
-      "ci_high": 0.23754789272030652
+      "value": 0.08150470219435736,
+      "ci_low": 0.054140127388535034,
+      "ci_high": 0.11146496815286625
     },
     "evidence_recall": {
-      "value": 0.04,
-      "ci_low": 0.024,
-      "ci_high": 0.058
+      "value": 0.026,
+      "ci_low": 0.012,
+      "ci_high": 0.04
     },
     "chunk_precision": {
-      "value": 0.42366666666666664,
-      "ci_low": 0.3835,
-      "ci_high": 0.4597999999999999
+      "value": 0.5169857142857143,
+      "ci_low": 0.4778,
+      "ci_high": 0.5574666666666663
     },
     "chunk_recall": {
-      "value": 0.40987619047619034,
-      "ci_low": 0.36963809523809515,
-      "ci_high": 0.4468999999999998
+      "value": 0.3960285714285713,
+      "ci_low": 0.3602619047619049,
+      "ci_high": 0.43216190476190464
     },
     "chunk_f1": {
-      "value": 0.4131074481074483,
-      "ci_low": 0.3736482295482297,
-      "ci_high": 0.44843809523809547
+      "value": 0.4329978354978362,
+      "ci_low": 0.3971341991341996,
+      "ci_high": 0.4699402597402607
     },
     "reward_fraction": {
-      "value": 0.36507226193894854,
-      "ci_low": 0.3314908130713392,
-      "ci_high": 0.397269411814988
+      "value": 0.4177789541616041,
+      "ci_low": 0.3852994384599448,
+      "ci_high": 0.44971931416809124
     },
     "accuracy": {
-      "value": 0.322,
-      "ci_low": 0.282,
-      "ci_high": 0.364
+      "value": 0.37,
+      "ci_low": 0.324,
+      "ci_high": 0.412
     },
     "macro_f1": {
-      "value": 0.24450243204121472,
-      "ci_low": 0.2132929151223283,
-      "ci_high": 0.27694078692086815
+      "value": 0.26292118262921177,
+      "ci_low": 0.23010139081213485,
+      "ci_high": 0.2951202121646885
     }
   },
   "confidence_interval": "95% percentile bootstrap over examples",
   "bootstrap_resamples": 1000,
-  "generation_seconds": 1601.2,
-  "seconds_per_example": 3.202,
+  "generation_seconds": 1819.1,
+  "seconds_per_example": 3.638,
   "config": {
     "seed": 0,
     "bootstrap_resamples": 1000,
@@ -168,8 +169,8 @@
     "config_path": "configs/grounded/eval.yaml"
   },
   "environment": {
-    "date_utc": "2026-10-09T08:48:31+00:00",
-    "git_sha": "4f8f005d4dc50abd53eb1f4d1f18e85a0cc8083f",
+    "date_utc": "2026-10-11T11:28:26+00:00",
+    "git_sha": "7e41e3c41cc4d0524732383b095331ab2ee0c359",
     "git_dirty": false,
     "python": "3.11.15",
     "packages": {

@@ -20,99 +20,100 @@
     "device": "mps",
     "batch_size": 8,
     "max_new_tokens": 256,
-    "decoding": "greedy"
+    "decoding": "greedy",
+    "repetition_penalty": 1.0
   },
   "metrics": {
     "format_rate": {
-      "value": 0.978,
-      "ci_low": 0.969,
-      "ci_high": 0.986
+      "value": 0.817,
+      "ci_low": 0.793,
+      "ci_high": 0.841
     },
     "em": {
-      "value": 0.085,
-      "ci_low": 0.068,
-      "ci_high": 0.102
+      "value": 0.022,
+      "ci_low": 0.014,
+      "ci_high": 0.032
     },
     "f1": {
-      "value": 0.21215829249540905,
-      "ci_low": 0.19299680016797977,
-      "ci_high": 0.23265067077438834
+      "value": 0.13523282483831678,
+      "ci_low": 0.12246461273814913,
+      "ci_high": 0.15097735274460725
     },
     "has_ans_em": {
-      "value": 0.108,
-      "ci_low": 0.0814663951120163,
-      "ci_high": 0.13529411764705881
+      "value": 0.026,
+      "ci_low": 0.013565891472868217,
+      "ci_high": 0.040160642570281124
     },
     "has_ans_f1": {
-      "value": 0.3623165849908181,
-      "ci_low": 0.3365769961459236,
-      "ci_high": 0.3911107247541076
+      "value": 0.2524656496766336,
+      "ci_low": 0.2317911989107583,
+      "ci_high": 0.2745688418466957
     },
     "no_ans_em": {
-      "value": 0.062,
-      "ci_low": 0.0421455938697318,
-      "ci_high": 0.08366533864541832
+      "value": 0.018,
+      "ci_low": 0.007827788649706457,
+      "ci_high": 0.031315240083507306
     },
     "answer_rate": {
-      "value": 0.965,
-      "ci_low": 0.953,
-      "ci_high": 0.976
+      "value": 0.804,
+      "ci_low": 0.779,
+      "ci_high": 0.827
     },
     "unverified_quote_rate": {
-      "value": 0.29411764705882354,
-      "ci_low": 0.26198830409356727,
-      "ci_high": 0.32588235294117646
+      "value": 0.2531446540880503,
+      "ci_low": 0.22448979591836735,
+      "ci_high": 0.2796992481203007
     },
     "answers_with_unverified_quote": {
-      "value": 0.25803108808290154,
-      "ci_low": 0.22854188210961737,
-      "ci_high": 0.28733264675592174
+      "value": 0.31840796019900497,
+      "ci_low": 0.2840909090909091,
+      "ci_high": 0.35051546391752575
     },
     "evidence_recall": {
-      "value": 0.398,
-      "ci_low": 0.3537832310838446,
-      "ci_high": 0.44242424242424244
+      "value": 0.492,
+      "ci_low": 0.44715447154471544,
+      "ci_high": 0.534446764091858
     },
     "chunk_precision": {
-      "value": 0.643,
-      "ci_low": 0.600609756097561,
-      "ci_high": 0.6843177189409368
+      "value": 0.5791000000000001,
+      "ci_low": 0.5410836762688614,
+      "ci_high": 0.6178986995208761
     },
     "chunk_recall": {
-      "value": 0.644,
-      "ci_low": 0.6012269938650306,
-      "ci_high": 0.685370741482966
+      "value": 0.642,
+      "ci_low": 0.5978947368421053,
+      "ci_high": 0.6802443991853361
     },
     "chunk_f1": {
-      "value": 0.6433333333333334,
-      "ci_low": 0.6009485094850948,
-      "ci_high": 0.6843177189409368
+      "value": 0.5991714285714286,
+      "ci_low": 0.5576274345354583,
+      "ci_high": 0.6370098758189108
     },
     "abstention_precision": {
-      "value": 0.7692307692307693,
-      "ci_low": 0.5,
-      "ci_high": 1.0
+      "value": 0.6923076923076923,
+      "ci_low": 0.42857142857142855,
+      "ci_high": 0.9166666666666666
     },
     "abstention_recall": {
-      "value": 0.02,
-      "ci_low": 0.009541984732824428,
-      "ci_high": 0.03262955854126679
+      "value": 0.018,
+      "ci_low": 0.007827788649706457,
+      "ci_high": 0.031315240083507306
     },
     "abstention_f1": {
-      "value": 0.03898635477582846,
-      "ci_low": 0.018832391713747645,
-      "ci_high": 0.06262230919765166
+      "value": 0.03508771929824561,
+      "ci_low": 0.015444015444015443,
+      "ci_high": 0.060240963855421686
     },
     "reward_fraction": {
-      "value": 0.4078447734352734,
-      "ci_low": 0.3893115161094043,
-      "ci_high": 0.4281297638447687
+      "value": 0.3672532295792383,
+      "ci_low": 0.34881687398954986,
+      "ci_high": 0.38631881936162793
     }
   },
   "confidence_interval": "95% percentile bootstrap over examples",
   "bootstrap_resamples": 1000,
-  "generation_seconds": 545.7,
-  "seconds_per_example": 0.546,
+  "generation_seconds": 1079.5,
+  "seconds_per_example": 1.08,
   "config": {
     "seed": 0,
     "bootstrap_resamples": 1000,
@@ -175,8 +176,8 @@
     "config_path": "configs/grounded/eval.yaml"
   },
   "environment": {
-    "date_utc": "2026-10-05T06:30:21+00:00",
-    "git_sha": "d37267ccec3b96d50bab0e1b834a1a1e2b68435a",
+    "date_utc": "2026-10-11T08:46:11+00:00",
+    "git_sha": "7e41e3c41cc4d0524732383b095331ab2ee0c359",
     "git_dirty": false,
     "python": "3.11.15",
     "packages": {

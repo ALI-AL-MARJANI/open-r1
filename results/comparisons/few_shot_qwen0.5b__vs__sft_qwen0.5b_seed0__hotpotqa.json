@@ -1,0 +1,77 @@
+{
+  "run_a": "few_shot_qwen0.5b",
+  "run_b": "sft_qwen0.5b_seed0",
+  "dataset": "hotpotqa",
+  "test": "paired bootstrap over examples, percentile interval, two-sided p-value",
+  "results": [
+    {
+      "metric": "f1",
+      "difference": 0.1864710645832782,
+      "ci_low": 0.149413509987318,
+      "ci_high": 0.2241980656008366,
+      "p_value": 0.0,
+      "n_examples": 500,
+      "n_resamples": 10000
+    },
+    {
+      "metric": "sp_f1",
+      "difference": 0.084126984126984,
+      "ci_low": 0.059704761904761816,
+      "ci_high": 0.10871111111111108,
+      "p_value": 0.0,
+      "n_examples": 500,
+      "n_resamples": 10000
+    },
+    {
+      "metric": "joint_f1",
+      "difference": 0.04059012223965986,
+      "ci_low": 0.026777227874738935,
+      "ci_high": 0.05483919381670457,
+      "p_value": 0.0,
+      "n_examples": 500,
+      "n_resamples": 10000
+    },
+    {
+      "metric": "chunk_f1",
+      "difference": 0.15553333333333372,
+      "ci_low": 0.12600000000000022,
+      "ci_high": 0.18506666666666724,
+      "p_value": 0.0,
+      "n_examples": 500,
+      "n_resamples": 10000
+    },
+    {
+      "metric": "unverified_quote_rate",
+      "difference": -0.08447181916190949,
+      "ci_low": -0.14532342657342656,
+      "ci_high": -0.026911468812877287,
+      "p_value": 0.004,
+      "n_examples": 500,
+      "n_resamples": 10000
+    }
+  ],
+  "environment": {
+    "date_utc": "2026-10-11T11:33:16+00:00",
+    "git_sha": "7e41e3c41cc4d0524732383b095331ab2ee0c359",
+    "git_dirty": false,
+    "python": "3.11.15",
+    "packages": {
+      "torch": "2.14.1",
+      "transformers": "5.18.0",
+      "trl": "0.29.1",
+      "peft": "0.21.2",
+      "datasets": "5.0.1",
+      "accelerate": "1.15.0",
+      "vllm": null,
+      "openai": null
+    },
+    "hardware": {
+      "platform": "macOS-15.6.1-arm64-arm-64bit",
+      "machine": "arm64",
+      "cpu_count": 10,
+      "ram_gb": 17.2,
+      "accelerator": "mps"
+    },
+    "command": "scripts/grounded/compare.py --a few_shot_qwen0.5b --b sft_qwen0.5b_seed0 --dataset hotpotqa --metrics f1 sp_f1 joint_f1 chunk_f1 unverified_quote_rate"
+  }
+}
