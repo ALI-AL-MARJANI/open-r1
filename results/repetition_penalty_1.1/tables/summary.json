@@ -1,0 +1,547 @@
+{
+  "hotpotqa": {
+    "few_shot_qwen0.5b": {
+      "n_seeds": 1,
+      "n_examples": 500,
+      "git_shas": [
+        "4f8f005d4dc50abd53eb1f4d1f18e85a0cc8083f"
+      ],
+      "metrics": {
+        "format_rate": {
+          "value": 0.384,
+          "ci_low": 0.34,
+          "ci_high": 0.428
+        },
+        "em": {
+          "value": 0.012,
+          "ci_low": 0.004,
+          "ci_high": 0.022
+        },
+        "f1": {
+          "value": 0.05764548023699726,
+          "ci_low": 0.0411325414248634,
+          "ci_high": 0.0743773934012324
+        },
+        "sp_em": {
+          "value": 0.008,
+          "ci_low": 0.002,
+          "ci_high": 0.016
+        },
+        "sp_f1": {
+          "value": 0.040949206349206346,
+          "ci_low": 0.026777777777777772,
+          "ci_high": 0.05673333333333335
+        },
+        "joint_f1": {
+          "value": 0.007901585660716096,
+          "ci_low": 0.003420864159994595,
+          "ci_high": 0.013791582909843777
+        },
+        "chunk_f1": {
+          "value": 0.052514285714285715,
+          "ci_low": 0.03683809523809523,
+          "ci_high": 0.06827619047619046
+        },
+        "unverified_quote_rate": {
+          "value": 0.27873563218390807,
+          "ci_low": 0.21994884910485935,
+          "ci_high": 0.3398328690807799
+        }
+      }
+    },
+    "sft_qwen0.5b": {
+      "n_seeds": 1,
+      "n_examples": 500,
+      "git_shas": [
+        "7c73d0a05535a3742ef3a02f445f73909846a5ed"
+      ],
+      "metrics": {
+        "format_rate": {
+          "value": 1.0,
+          "ci_low": 1.0,
+          "ci_high": 1.0
+        },
+        "em": {
+          "value": 0.0,
+          "ci_low": 0.0,
+          "ci_high": 0.0
+        },
+        "f1": {
+          "value": 0.00044444444444444447,
+          "ci_low": 0.0,
+          "ci_high": 0.0017777777777777779
+        },
+        "sp_em": {
+          "value": 0.0,
+          "ci_low": 0.0,
+          "ci_high": 0.0
+        },
+        "sp_f1": {
+          "value": 0.0013333333333333333,
+          "ci_low": 0.0,
+          "ci_high": 0.004
+        },
+        "joint_f1": {
+          "value": 0.0,
+          "ci_low": 0.0,
+          "ci_high": 0.0
+        },
+        "chunk_f1": {
+          "value": 0.0013333333333333333,
+          "ci_low": 0.0,
+          "ci_high": 0.004
+        },
+        "unverified_quote_rate": {
+          "value": 0.0
+        }
+      }
+    },
+    "zero_shot_qwen0.5b": {
+      "n_seeds": 1,
+      "n_examples": 500,
+      "git_shas": [
+        "d37267ccec3b96d50bab0e1b834a1a1e2b68435a"
+      ],
+      "metrics": {
+        "format_rate": {
+          "value": 0.82,
+          "ci_low": 0.786,
+          "ci_high": 0.852
+        },
+        "em": {
+          "value": 0.05,
+          "ci_low": 0.032,
+          "ci_high": 0.07
+        },
+        "f1": {
+          "value": 0.14611964550577286,
+          "ci_low": 0.12350991212377001,
+          "ci_high": 0.16765130198825784
+        },
+        "sp_em": {
+          "value": 0.002,
+          "ci_low": 0.0,
+          "ci_high": 0.008
+        },
+        "sp_f1": {
+          "value": 0.11731904761904752,
+          "ci_low": 0.09507619047619043,
+          "ci_high": 0.13848571428571418
+        },
+        "joint_f1": {
+          "value": 0.0325411567386115,
+          "ci_low": 0.02402057286420224,
+          "ci_high": 0.04227840474835056
+        },
+        "chunk_f1": {
+          "value": 0.1650000000000001,
+          "ci_low": 0.14099999999999993,
+          "ci_high": 0.18866666666666693
+        },
+        "unverified_quote_rate": {
+          "value": 0.2534246575342466,
+          "ci_low": 0.2164009111617312,
+          "ci_high": 0.29411764705882354
+        }
+      }
+    }
+  },
+  "pubmedqa": {
+    "few_shot_qwen0.5b": {
+      "n_seeds": 1,
+      "n_examples": 500,
+      "git_shas": [
+        "4f8f005d4dc50abd53eb1f4d1f18e85a0cc8083f"
+      ],
+      "metrics": {
+        "format_rate": {
+          "value": 0.55,
+          "ci_low": 0.504,
+          "ci_high": 0.59
+        },
+        "accuracy": {
+          "value": 0.322,
+          "ci_low": 0.282,
+          "ci_high": 0.364
+        },
+        "macro_f1": {
+          "value": 0.24450243204121472,
+          "ci_low": 0.2132929151223283,
+          "ci_high": 0.27694078692086815
+        },
+        "answer_rate": {
+          "value": 0.538,
+          "ci_low": 0.49,
+          "ci_high": 0.578
+        },
+        "unverified_quote_rate": {
+          "value": 0.08374384236453201,
+          "ci_low": 0.06161745827984596,
+          "ci_high": 0.10591133004926108
+        }
+      }
+    },
+    "zero_shot_qwen0.5b": {
+      "n_seeds": 1,
+      "n_examples": 500,
+      "git_shas": [
+        "d37267ccec3b96d50bab0e1b834a1a1e2b68435a"
+      ],
+      "metrics": {
+        "format_rate": {
+          "value": 0.888,
+          "ci_low": 0.858,
+          "ci_high": 0.914
+        },
+        "accuracy": {
+          "value": 0.394,
+          "ci_low": 0.35,
+          "ci_high": 0.434
+        },
+        "macro_f1": {
+          "value": 0.25869520477464497,
+          "ci_low": 0.22802853711944623,
+          "ci_high": 0.28767013318737455
+        },
+        "answer_rate": {
+          "value": 0.888,
+          "ci_low": 0.858,
+          "ci_high": 0.914
+        },
+        "unverified_quote_rate": {
+          "value": 0.1523809523809524,
+          "ci_low": 0.11570247933884298,
+          "ci_high": 0.19682539682539682
+        }
+      }
+    }
+  },
+  "squad_v2": {
+    "few_shot_qwen0.5b": {
+      "n_seeds": 1,
+      "n_examples": 1000,
+      "git_shas": [
+        "4f8f005d4dc50abd53eb1f4d1f18e85a0cc8083f"
+      ],
+      "metrics": {
+        "format_rate": {
+          "value": 0.913,
+          "ci_low": 0.897,
+          "ci_high": 0.93
+        },
+        "em": {
+          "value": 0.404,
+          "ci_low": 0.37,
+          "ci_high": 0.432
+        },
+        "f1": {
+          "value": 0.4379983867565973,
+          "ci_low": 0.40763974587166785,
+          "ci_high": 0.4664066554036614
+        },
+        "has_ans_f1": {
+          "value": 0.14799677351319462,
+          "ci_low": 0.12213819651862852,
+          "ci_high": 0.17555556007136466
+        },
+        "no_ans_em": {
+          "value": 0.728,
+          "ci_low": 0.6888888888888889,
+          "ci_high": 0.7653061224489796
+        },
+        "abstention_f1": {
+          "value": 0.6286701208981003,
+          "ci_low": 0.5944986690328304,
+          "ci_high": 0.6576728499156829
+        },
+        "unverified_quote_rate": {
+          "value": 0.16129032258064516,
+          "ci_low": 0.1275797373358349,
+          "ci_high": 0.19444444444444445
+        },
+        "evidence_recall": {
+          "value": 0.196,
+          "ci_low": 0.16435643564356436,
+          "ci_high": 0.23134328358208955
+        },
+        "chunk_f1": {
+          "value": 0.17832063492063505,
+          "ci_low": 0.1544471047264344,
+          "ci_high": 0.2054813973303042
+        }
+      }
+    },
+    "sft_qwen0.5b": {
+      "n_seeds": 1,
+      "n_examples": 1000,
+      "git_shas": [
+        "7c73d0a05535a3742ef3a02f445f73909846a5ed"
+      ],
+      "metrics": {
+        "format_rate": {
+          "value": 1.0,
+          "ci_low": 1.0,
+          "ci_high": 1.0
+        },
+        "em": {
+          "value": 0.507,
+          "ci_low": 0.474,
+          "ci_high": 0.537
+        },
+        "f1": {
+          "value": 0.5084333333333333,
+          "ci_low": 0.474,
+          "ci_high": 0.5388666666666667
+        },
+        "has_ans_f1": {
+          "value": 0.018866666666666667,
+          "ci_low": 0.007889546351084813,
+          "ci_high": 0.03141153081510935
+        },
+        "no_ans_em": {
+          "value": 0.998,
+          "ci_low": 0.9935897435897436,
+          "ci_high": 1.0
+        },
+        "abstention_f1": {
+          "value": 0.6716016150740242,
+          "ci_low": 0.6409372846312887,
+          "ci_high": 0.697089947089947
+        },
+        "unverified_quote_rate": {
+          "value": 0.0,
+          "ci_low": 0.0,
+          "ci_high": 0.0
+        },
+        "evidence_recall": {
+          "value": 0.026,
+          "ci_low": 0.012269938650306749,
+          "ci_high": 0.0390625
+        },
+        "chunk_f1": {
+          "value": 0.026,
+          "ci_low": 0.012269938650306749,
+          "ci_high": 0.0390625
+        }
+      }
+    },
+    "zero_shot_qwen0.5b": {
+      "n_seeds": 1,
+      "n_examples": 1000,
+      "git_shas": [
+        "d37267ccec3b96d50bab0e1b834a1a1e2b68435a"
+      ],
+      "metrics": {
+        "format_rate": {
+          "value": 0.978,
+          "ci_low": 0.969,
+          "ci_high": 0.986
+        },
+        "em": {
+          "value": 0.085,
+          "ci_low": 0.068,
+          "ci_high": 0.102
+        },
+        "f1": {
+          "value": 0.21215829249540905,
+          "ci_low": 0.19299680016797977,
+          "ci_high": 0.23265067077438834
+        },
+        "has_ans_f1": {
+          "value": 0.3623165849908181,
+          "ci_low": 0.3365769961459236,
+          "ci_high": 0.3911107247541076
+        },
+        "no_ans_em": {
+          "value": 0.062,
+          "ci_low": 0.0421455938697318,
+          "ci_high": 0.08366533864541832
+        },
+        "abstention_f1": {
+          "value": 0.03898635477582846,
+          "ci_low": 0.018832391713747645,
+          "ci_high": 0.06262230919765166
+        },
+        "unverified_quote_rate": {
+          "value": 0.29411764705882354,
+          "ci_low": 0.26198830409356727,
+          "ci_high": 0.32588235294117646
+        },
+        "evidence_recall": {
+          "value": 0.398,
+          "ci_low": 0.3537832310838446,
+          "ci_high": 0.44242424242424244
+        },
+        "chunk_f1": {
+          "value": 0.6433333333333334,
+          "ci_low": 0.6009485094850948,
+          "ci_high": 0.6843177189409368
+        }
+      }
+    }
+  },
+  "squad_v2_distractors": {
+    "few_shot_qwen0.5b": {
+      "n_seeds": 1,
+      "n_examples": 1000,
+      "git_shas": [
+        "4f8f005d4dc50abd53eb1f4d1f18e85a0cc8083f"
+      ],
+      "metrics": {
+        "format_rate": {
+          "value": 0.622,
+          "ci_low": 0.593,
+          "ci_high": 0.653
+        },
+        "em": {
+          "value": 0.128,
+          "ci_low": 0.109,
+          "ci_high": 0.149
+        },
+        "f1": {
+          "value": 0.1767259275650726,
+          "ci_low": 0.15569576874023222,
+          "ci_high": 0.19959294459562613
+        },
+        "has_ans_f1": {
+          "value": 0.18345185513014522,
+          "ci_low": 0.1560844241970828,
+          "ci_high": 0.21260353655563055
+        },
+        "no_ans_em": {
+          "value": 0.17,
+          "ci_low": 0.14102564102564102,
+          "ci_high": 0.20408163265306123
+        },
+        "abstention_f1": {
+          "value": 0.2668759811616955,
+          "ci_low": 0.22575516693163752,
+          "ci_high": 0.3142437591776798
+        },
+        "unverified_quote_rate": {
+          "value": 0.20711743772241992,
+          "ci_low": 0.1813793103448276,
+          "ci_high": 0.23154121863799282
+        },
+        "evidence_recall": {
+          "value": 0.222,
+          "ci_low": 0.1859504132231405,
+          "ci_high": 0.26129666011787817
+        },
+        "chunk_f1": {
+          "value": 0.14399999999999996,
+          "ci_low": 0.12363636363636353,
+          "ci_high": 0.16590436590436602
+        }
+      }
+    },
+    "sft_qwen0.5b": {
+      "n_seeds": 1,
+      "n_examples": 1000,
+      "git_shas": [
+        "7c73d0a05535a3742ef3a02f445f73909846a5ed"
+      ],
+      "metrics": {
+        "format_rate": {
+          "value": 1.0,
+          "ci_low": 1.0,
+          "ci_high": 1.0
+        },
+        "em": {
+          "value": 0.504,
+          "ci_low": 0.471,
+          "ci_high": 0.534
+        },
+        "f1": {
+          "value": 0.504,
+          "ci_low": 0.471,
+          "ci_high": 0.534
+        },
+        "has_ans_f1": {
+          "value": 0.008,
+          "ci_low": 0.0019230769230769232,
+          "ci_high": 0.017475728155339806
+        },
+        "no_ans_em": {
+          "value": 1.0,
+          "ci_low": 1.0,
+          "ci_high": 1.0
+        },
+        "abstention_f1": {
+          "value": 0.6688963210702341,
+          "ci_low": 0.6388508891928865,
+          "ci_high": 0.6950261780104713
+        },
+        "unverified_quote_rate": {
+          "value": 0.0,
+          "ci_low": 0.0,
+          "ci_high": 0.0
+        },
+        "evidence_recall": {
+          "value": 0.008,
+          "ci_low": 0.0019342359767891683,
+          "ci_high": 0.01642710472279261
+        },
+        "chunk_f1": {
+          "value": 0.01,
+          "ci_low": 0.0020325203252032522,
+          "ci_high": 0.0199203187250996
+        }
+      }
+    },
+    "zero_shot_qwen0.5b": {
+      "n_seeds": 1,
+      "n_examples": 1000,
+      "git_shas": [
+        "d37267ccec3b96d50bab0e1b834a1a1e2b68435a"
+      ],
+      "metrics": {
+        "format_rate": {
+          "value": 0.94,
+          "ci_low": 0.925,
+          "ci_high": 0.955
+        },
+        "em": {
+          "value": 0.039,
+          "ci_low": 0.027,
+          "ci_high": 0.051
+        },
+        "f1": {
+          "value": 0.14212539850804928,
+          "ci_low": 0.12728397717742285,
+          "ci_high": 0.15865889220504964
+        },
+        "has_ans_f1": {
+          "value": 0.26625079701609855,
+          "ci_low": 0.24263933655550607,
+          "ci_high": 0.29039401811030696
+        },
+        "no_ans_em": {
+          "value": 0.018,
+          "ci_low": 0.007707129094412331,
+          "ci_high": 0.02976190476190476
+        },
+        "abstention_f1": {
+          "value": 0.01972386587771203,
+          "ci_low": 0.003976143141153081,
+          "ci_high": 0.038387715930902115
+        },
+        "unverified_quote_rate": {
+          "value": 0.2636127917026793,
+          "ci_low": 0.234737747205503,
+          "ci_high": 0.29156223893065997
+        },
+        "evidence_recall": {
+          "value": 0.296,
+          "ci_low": 0.25614754098360654,
+          "ci_high": 0.3340122199592668
+        },
+        "chunk_f1": {
+          "value": 0.4631333333333333,
+          "ci_low": 0.42500000000000004,
+          "ci_high": 0.5057448229792919
+        }
+      }
+    }
+  }
+}
